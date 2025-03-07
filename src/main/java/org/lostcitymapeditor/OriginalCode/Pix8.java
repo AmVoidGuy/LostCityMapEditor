@@ -27,7 +27,7 @@ public class Pix8 extends Pix2D {
         OptFileTransformer.TextureOptions textureOptions = textureOptionsMap.get(name);
         BufferedImage image = null;
         try {
-            InputStream inputStream = getClass().getClassLoader().getResourceAsStream("data/textures/" + name + ".png");
+            InputStream inputStream = getClass().getClassLoader().getResourceAsStream("Data/Textures/" + name + ".png");
             if (inputStream == null) {
                 System.err.println("Error loading image: " + name + ".png (resource not found)");
                 return;
