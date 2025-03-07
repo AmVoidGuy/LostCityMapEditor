@@ -24,37 +24,6 @@ tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
 
-mainClassName = 'org.lostcitymapeditor.LostCityMapEditor'  // Replace with your main class
-
-task copyResources(type: Copy) {
-    from 'src/main/resources'
-    into "$buildDir/tempResources"  // A temporary directory
-}
-
-jar {
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    manifest {
-        attributes(
-                'Main-Class': 'org.lostcitymapeditor.LostCityMapEditor'
-        )
-    }
-    from {
-        configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) }
-    }
-    from('src/main/resources') {
-        println "Adding resources from src/main/resources"
-        include "**/*"  // explicitly include all files
-    }
-
-    dependsOn copyResources //ensure resources are copied before the jar is built.
-
-    doLast {
-        fileTree(dir: destinationDirectory, include: "**/*").each { File file ->
-            println "File added to jar: ${file.name}"
-        }
-    }
-}
-
 application {
     mainModule = 'org.lostcitymapeditor'
     mainClass = 'org.lostcitymapeditor.LostCityMapEditor'
