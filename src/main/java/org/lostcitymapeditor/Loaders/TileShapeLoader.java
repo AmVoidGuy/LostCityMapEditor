@@ -1,19 +1,22 @@
 package org.lostcitymapeditor.Loaders;
 
 import javafx.scene.image.Image;
-
-import java.io.File;
+import java.io.InputStream;
 import java.util.Map;
 
 public class TileShapeLoader {
     public static void loadShapeImages(Map<Integer, Image> shapeImages) {
         for (int i = 0; i <= 11; i++) {
-            String imagePath = "Data/TileShapes/shape-" + i + ".png";
-            try {
-                Image image = new Image(new File(imagePath).toURI().toString());
-                shapeImages.put(i, image);
+            String resourcePath = "/Data/TileShapes/Shape-" + i + ".png";
+            try (InputStream inputStream = FileLoader.class.getResourceAsStream(resourcePath)) {
+                if (inputStream != null) {
+                    Image image = new Image(inputStream);
+                    shapeImages.put(i, image);
+                } else {
+                    System.err.println("Could not load resource: " + resourcePath);
+                }
             } catch (Exception e) {
-                System.err.println("Could not load image: " + imagePath);
+                System.err.println("Could not load resource: " + resourcePath);
             }
         }
     }

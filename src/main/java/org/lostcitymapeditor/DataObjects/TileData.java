@@ -1,6 +1,6 @@
 package org.lostcitymapeditor.DataObjects;
 
-public class    TileData {
+public class TileData {
     public int level;
     public int x;
     public int z;

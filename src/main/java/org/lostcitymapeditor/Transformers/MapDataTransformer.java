@@ -3,11 +3,9 @@ package org.lostcitymapeditor.Transformers;
 import org.lostcitymapeditor.DataObjects.*;
 import org.lostcitymapeditor.Util.DataHelpers;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -16,7 +14,8 @@ public class MapDataTransformer {
     public static MapData parseJM2File(String filePath) {
         String currentSection = null;
         MapData currentMapData = new MapData();
-        try (Scanner scanner = new Scanner(new File(filePath))) {
+        try (InputStream inputStream = MapDataTransformer.class.getClassLoader().getResourceAsStream(filePath);
+             Scanner scanner = new Scanner(Objects.requireNonNull(inputStream, "Could not find resource: " + filePath))) {
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine().trim();
 
@@ -86,7 +85,7 @@ public class MapDataTransformer {
                                             }
                                         }
                                         tileData.shape = shapeTemp;
-                                        currentMapData.mapTiles.add(tileData);
+                                        currentMapData.mapTiles[level][x][z] = tileData;
                                         break;
                                     case "LOC":
                                         String[] locParts = dataString.split(" ");
@@ -155,45 +154,45 @@ public class MapDataTransformer {
     public static void writeJM2File(MapData mapData, String filePath) {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
             writer.write("==== MAP ====\n");
-            for (TileData tile : mapData.mapTiles) {
-                writer.write(String.format("%d %d %d:", tile.level, tile.x, tile.z));
 
-                String dataString = "";
-                if (tile.height != null && tile.height != 0) {
-                    dataString += " h" + tile.height;
-                }
-                if (tile.overlay != null) {
-                    dataString += " o" + (tile.overlay.id + 1);
-                }
-                if (tile.height != null && tile.height != 0) {
-                    dataString += " h" + tile.height;
-                }
-                if (tile.overlay != null) {
-                    dataString += " o" + (tile.overlay.id + 1);
-                }
-                if (tile.shape != null || tile.rotation != null) {
-                    dataString += ";";
+            for (int level = 0; level < mapData.mapTiles.length; level++) {
+                if (mapData.mapTiles[level] != null) {
+                    for (int x = 0; x < mapData.mapTiles[level].length; x++) {
+                        if (mapData.mapTiles[level][x] != null) {
+                            for (int z = 0; z < mapData.mapTiles[level][x].length; z++) {
+                                TileData tile = mapData.mapTiles[level][x][z];
+                                if (tile != null) {
+                                    writer.write(String.format("%d %d %d:", tile.level, tile.x, tile.z));
 
-                    if (tile.shape != null) {
-                        dataString += tile.shape;
-                    } else {
-                        dataString += "0";
+                                    StringBuilder dataString = new StringBuilder();
+                                    if (tile.height != null && tile.height != 0) {
+                                        dataString.append(" h").append(tile.height);
+                                    }
+                                    if (tile.overlay != null) {
+                                        dataString.append(" o").append(tile.overlay.id + 1);
+                                    }
+
+                                    if (tile.shape != null) {
+                                        dataString.append(";").append(tile.shape);
+                                    }
+                                    if (tile.rotation != null) {
+                                        dataString.append(";").append(tile.rotation);
+                                    }
+
+                                    if (tile.flag != null) {
+                                        dataString.append(" f").append(tile.flag);
+                                    }
+                                    if (tile.underlay != null) {
+                                        dataString.append(" u").append(tile.underlay.id);
+                                    }
+
+                                    writer.write(dataString.toString() + "\n");
+                                }
+                            }
+                        }
                     }
-                    if (tile.rotation != null) {
-                        dataString += ";";
-                        dataString += tile.rotation;
-                    }
                 }
-                if (tile.flag != null) {
-                    dataString += " f" + tile.flag;
-                }
-                if (tile.underlay != null) {
-                    dataString += " u" + tile.underlay.id;
-                }
-
-                writer.write(dataString + "\n");
             }
-
             writer.write("\n==== LOC ====\n");
             if (!mapData.locations.isEmpty()) {
                 for (LocData loc : mapData.locations) {
