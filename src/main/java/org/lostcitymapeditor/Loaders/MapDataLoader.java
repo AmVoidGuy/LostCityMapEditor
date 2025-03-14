@@ -3,6 +3,8 @@ package org.lostcitymapeditor.Loaders;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.scene.control.Alert;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 import org.lostcitymapeditor.DataObjects.MapData;
 import org.lostcitymapeditor.Transformers.MapDataTransformer;
 
@@ -46,14 +48,23 @@ public class MapDataLoader {
             }
         }
 
-        String exportFilePath = NEW_MAPS_DIRECTORY + currentMapFileName;
-        MapDataTransformer.writeJM2File(currentMapData, exportFilePath);
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Save Map File");
+        fileChooser.setInitialFileName(currentMapFileName);
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JM2 Files", "*.jm2"));
 
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Export Successful");
-        alert.setHeaderText(null);
-        alert.setContentText("Map exported to: " + exportFilePath);
-        alert.showAndWait();
+        Stage stage = new Stage();
+        File file = fileChooser.showSaveDialog(stage);
+        if (file != null) {
+            String exportFilePath = file.getAbsolutePath();
+            MapDataTransformer.writeJM2File(currentMapData, exportFilePath);
+
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Export Successful");
+            alert.setHeaderText(null);
+            alert.setContentText("Map exported to: " + exportFilePath);
+            alert.showAndWait();
+        }
     }
 
     public static ObservableList<String> getJM2Files() {
