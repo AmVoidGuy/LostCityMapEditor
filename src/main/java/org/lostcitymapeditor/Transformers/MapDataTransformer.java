@@ -1,19 +1,28 @@
 package org.lostcitymapeditor.Transformers;
 
 import org.lostcitymapeditor.DataObjects.*;
+import org.lostcitymapeditor.OriginalCode.World;
 import org.lostcitymapeditor.Util.DataHelpers;
 
 import java.io.*;
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class MapDataTransformer {
+    private static int baseX = 0;
+    private static int baseY = 0;
+
     public static MapData parseJM2File(String filePath) {
         String currentSection = null;
         MapData currentMapData = new MapData();
+        Pattern fileNamePattern = Pattern.compile("m(\\d+)_(\\d+)\\.jm2");
+        Matcher fileNameMatcher = fileNamePattern.matcher(filePath);
+        if (fileNameMatcher.find()) {
+            baseX = Integer.parseInt(fileNameMatcher.group(1));
+            baseY = Integer.parseInt(fileNameMatcher.group(2));
+        }
         try (InputStream inputStream = MapDataTransformer.class.getClassLoader().getResourceAsStream(filePath);
              Scanner scanner = new Scanner(Objects.requireNonNull(inputStream, "Could not find resource: " + filePath))) {
             while (scanner.hasNextLine()) {
@@ -64,8 +73,14 @@ public class MapDataTransformer {
 
                                         while (matcher.find()) {
                                             if (matcher.group(2) != null) {
-                                                tileData.height = Integer.parseInt(matcher.group(2));
-                                                Arrays.fill(tileData.cornerHeights, tileData.height);
+                                                int height = Integer.parseInt(matcher.group(2));
+                                                if(level == 0) {
+                                                    tileData.height = height * -8;
+                                                } else if (height != 1){
+                                                    tileData.height = Integer.parseInt(matcher.group(2)) * -8;
+                                                } else {
+                                                    tileData.height = height;
+                                                }
                                             } else if (matcher.group(4) != null) {
                                                 Integer overlayID = Integer.parseInt(matcher.group(4));
                                                 tileData.overlay = new OverlayData(overlayID - 1);
@@ -83,6 +98,14 @@ public class MapDataTransformer {
                                                     tileData.rotation = Integer.parseInt(matcher.group(11));
                                                 }
                                             }
+                                        }
+                                        if(tileData.height == 0 && tileData.level == 0) {
+                                            int worldX = baseX + x + 932731;
+                                            int worldZ = baseY + z + 556238;
+                                            tileData.perlin = true;
+                                            tileData.height = World.perlinNoise(worldX, worldZ) * -8;
+                                        } else if(tileData.height == 1) {
+                                            tileData.height = 0;
                                         }
                                         tileData.shape = shapeTemp;
                                         currentMapData.mapTiles[level][x][z] = tileData;
@@ -103,7 +126,10 @@ public class MapDataTransformer {
                                         }
 
                                         LocData locationData = new LocData(level, x, z, id, shape);
-                                        locationData.rotation = rotation;
+                                        if (rotation != null)
+                                            locationData.rotation = rotation;
+                                        else
+                                            locationData.rotation = 0;
                                         currentMapData.locations.add(locationData);
                                         break;
                                     case "NPC":
@@ -117,8 +143,8 @@ public class MapDataTransformer {
                                             System.out.println("Skipping invalid NPC line (id missing): " + line);
                                             continue;
                                         }
-                                        NpcData npcData = new NpcData(level, x, z, npcId);
-                                        currentMapData.npcs.add(npcData);
+                                        NpcData npcData = new NpcData(npcId);
+                                        currentMapData.npcs[level][x][z] = npcData;
                                         break;
                                     case "OBJ":
                                         String[] objParts = dataString.split(" ");
@@ -132,8 +158,8 @@ public class MapDataTransformer {
                                             System.out.println("Skipping invalid OBJ line (id or count missing): " + line);
                                             continue;
                                         }
-                                        ObjData objData = new ObjData(level, x, z, objId, count);
-                                        currentMapData.objects.add(objData);
+                                        ObjData objData = new ObjData(objId, count);
+                                        currentMapData.objects[level][x][z] = objData;
                                         break;
                                 }
                             } catch (NumberFormatException e) {
@@ -201,17 +227,36 @@ public class MapDataTransformer {
                 }
             }
 
-            if (!mapData.npcs.isEmpty()) {
+            if (mapData.npcs != null) {
                 writer.write("\n==== NPC ====\n");
-                for (NpcData npc : mapData.npcs) {
-                    writer.write(String.format("%d %d %d: %d\n", npc.level, npc.x, npc.z, npc.id));
+                for (int level = 0; level < 4; level++) {
+                    if (mapData.npcs[level] != null) {
+                        for (int x = 0; x < 64; x++) {
+                            if (mapData.npcs[level][x] != null) {
+                                for (int z = 0; z < 64; z++) {
+                                    if (mapData.npcs[level][x][z] != null) {
+                                        writer.write(String.format("%d %d %d: %d\n", level, x, z, mapData.npcs[level][x][z].id));
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
-            if (!mapData.objects.isEmpty()) {
+            if (mapData.objects != null) {
                 writer.write("\n==== OBJ ====\n");
-                for (ObjData obj : mapData.objects) {
-                    writer.write(String.format("%d %d %d: %d %d\n", obj.level, obj.x, obj.z, obj.id, obj.count));
+                for (int level = 0; level < 4; level++) {
+                    if (mapData.objects[level] != null) {
+                        for (int x = 0; x < 64; x++) {
+                            if (mapData.objects[level][x] != null) {
+                                for (int z = 0; z < 64; z++) {
+                                    if(mapData.objects[level][x][z] != null)
+                                        writer.write(String.format("%d %d %d: %d %d\n", level, x, z, mapData.objects[level][x][z].id, mapData.objects[level][x][z].count));
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

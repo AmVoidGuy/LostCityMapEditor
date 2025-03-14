@@ -12,7 +12,7 @@ public class newTriangle {
     int shape;
     int rotation;
     public int textureId;
-    float[] textureCoordinates;
+    public float[] textureCoordinates;
     static List<newTriangle> trianglesToRender = new ArrayList<>();
     public newTriangle.TileDatas tileData;
 
@@ -25,7 +25,7 @@ public class newTriangle {
             triangle.level = level;
             triangle.shape = shape;
             triangle.rotation = rotation;
-            triangle.vertices = new float[]{x1, -y1, z1, x2, -y2, z2, x3, -y3, z3};
+            triangle.vertices = new float[]{x1, y1, z1, x2, y2, z2, x3, y3, z3};
             triangle.colors = new int[]{color1, color2, color3};
             triangle.textureId = textureId;
             triangle.textureCoordinates = textureCoordinates;

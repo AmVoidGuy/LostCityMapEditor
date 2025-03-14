@@ -36,6 +36,7 @@ public class TileOverlay {
             { 1, 3, 5, 7, 11, 12 }, // FAN_BIG_SHAPE
             { 1, 3, 5, 7, 13, 14 } // TRAPEZIUM_SHAPE
     };
+
     public static final int[][] SHAPE_PATHS = new int[][] {
             { 0, 1, 2, 3, 0, 0, 1, 3 },
             { 1, 1, 2, 3, 1, 0, 1, 3 }, // PLAIN_SHAPE

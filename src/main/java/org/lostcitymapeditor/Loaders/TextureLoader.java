@@ -34,7 +34,8 @@ public class TextureLoader {
             int width = image.getWidth();
             int height = image.getHeight();
 
-            ByteBuffer buffer = convertImageToByteBuffer(image);
+            // Convert magenta pixels to transparent during buffer creation
+            ByteBuffer buffer = convertImageToByteBufferWithMagentaTransparency(image);
 
             int textureId = GL11.glGenTextures();
 
@@ -73,7 +74,7 @@ public class TextureLoader {
         }
     }
 
-    private static ByteBuffer convertImageToByteBuffer(BufferedImage image) {
+    private static ByteBuffer convertImageToByteBufferWithMagentaTransparency(BufferedImage image) {
         int width = image.getWidth();
         int height = image.getHeight();
         int[] pixels = new int[width * height];
@@ -84,10 +85,21 @@ public class TextureLoader {
         for (int y = height - 1; y >= 0; y--) {
             for (int x = 0; x < width; x++) {
                 int pixel = pixels[y * width + x];
-                buffer.put((byte) ((pixel >> 16) & 0xFF));
-                buffer.put((byte) ((pixel >> 8) & 0xFF));
-                buffer.put((byte) (pixel & 0xFF));
-                buffer.put((byte) ((pixel >> 24) & 0xFF));
+                int red = (pixel >> 16) & 0xFF;
+                int green = (pixel >> 8) & 0xFF;
+                int blue = pixel & 0xFF;
+
+                if (red == 255 && green == 0 && blue == 255) {
+                    buffer.put((byte) 0);
+                    buffer.put((byte) 0);
+                    buffer.put((byte) 0);
+                    buffer.put((byte) 0);
+                } else {
+                    buffer.put((byte) red);
+                    buffer.put((byte) green);
+                    buffer.put((byte) blue);
+                    buffer.put((byte) ((pixel >> 24) & 0xFF));
+                }
             }
         }
         buffer.flip();

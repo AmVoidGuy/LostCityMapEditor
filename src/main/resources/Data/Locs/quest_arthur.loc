@@ -1,0 +1,58 @@
+[loc_59]
+name=Door
+model=model_loc_3
+active=yes
+op1=Open
+retex1s=wall
+retex1d=door2
+recol2s=6342
+recol2d=11458
+
+[loc_60]
+name=Ladder
+model=model_loc_11
+active=yes
+op1=Climb-up
+mapscene=7
+
+[loc_62]
+name=Giant crystal
+desc=Can I see something inside...?
+model=model_loc_62
+active=yes
+width=2
+length=2
+
+[loc_63]
+name=Crate
+desc=Used for storage.
+model=model_loc_63
+active=yes
+op2=Hide-in
+
+[loc_64]
+name=Crate
+desc=Used for storage.
+model=model_loc_63
+active=yes
+op2=Hide-in
+
+[loc_65]
+name=Crate wall
+desc=Surprisingly sturdy looking.
+model=model_loc_3
+sharelight=yes
+occlude=yes
+op1=Climb-out
+retex1s=wall
+retex1d=elfwood
+recol2s=6342
+recol2d=23020
+
+[loc_69]
+name=Gangplank
+desc=Handy for boarding boats.
+model=model_loc_69
+op1=Cross
+active=yes
+sharelight=yes

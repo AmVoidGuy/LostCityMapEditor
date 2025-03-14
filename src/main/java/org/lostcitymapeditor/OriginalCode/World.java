@@ -1,18 +1,18 @@
 package org.lostcitymapeditor.OriginalCode;
 
+import org.lostcitymapeditor.DataObjects.LocData;
 import org.lostcitymapeditor.DataObjects.MapData;
 import org.lostcitymapeditor.DataObjects.TileData;
+import org.lostcitymapeditor.Loaders.FileLoader;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class World {
-    public static boolean lowMemory = true;
-    public static int levelBuilt;
-    public static boolean fullbright;
     private final int maxTileX;
     private final int maxTileZ;
-    public int[][][] levelHeightmap = new int[4][65][65];
+    public  int[][][] levelHeightmap = new int[4][65][65];
     private byte[][][] levelTileFlags = new byte[4][65][65];
     private final byte[][][] levelTileUnderlayIds;
     private final byte[][][] levelTileOverlayIds;
@@ -25,7 +25,6 @@ public class World {
     private final int[] blendLightness;
     private final int[] blendLuminance;
     private final int[] blendMagnitude;
-    private final int[][][] levelOccludemap;
     public static final int[] ROTATION_WALL_TYPE = new int[]{1, 2, 4, 8};
     public static final int[] ROTATION_WALL_CORNER_TYPE = new int[]{16, 32, 64, 128};
     public static final int[] WALL_DECORATION_ROTATION_FORWARD_X = new int[]{1, 0, -1, 0};
@@ -33,6 +32,38 @@ public class World {
     public static int randomHueOffset = (int) (Math.random() * 17.0D) - 8;
     public static int randomLightnessOffset = (int) (Math.random() * 33.0D) - 16;
     public static List<TileData> tileDataList = new ArrayList<>();
+    public static LinkList locs;
+    private static final String[] SUFFIXES = {
+            "_1", "_2", "_3", "_4", "_5", "_q", "_w", "_e", "_r", "_t",
+            "_8", "_9", "_0", "_a", "_s", "_d", "_f", "_g", "_h", "_z",
+            "_x", "_c", "_v"
+    };
+
+    private static final Map<Integer, String> SHAPE_SUFFIX_MAP = Map.ofEntries(
+            Map.entry(0, "_1"),
+            Map.entry(1, "_2"),
+            Map.entry(2, "_3"),
+            Map.entry(3, "_4"),
+            Map.entry(4, "_q"),
+            Map.entry(5, "_w"),
+            Map.entry(6, "_r"),
+            Map.entry(7, "_e"),
+            Map.entry(8, "_t"),
+            Map.entry(9, "_5"),
+            Map.entry(10, "_8"),
+            Map.entry(11, "_9"),
+            Map.entry(12, "_a"),
+            Map.entry(13, "_s"),
+            Map.entry(14, "_d"),
+            Map.entry(15, "_f"),
+            Map.entry(16, "_g"),
+            Map.entry(17, "_h"),
+            Map.entry(18, "_z"),
+            Map.entry(19, "_x"),
+            Map.entry(20, "_c"),
+            Map.entry(21, "_v"),
+            Map.entry(22, "_0")
+    );
 
     public World(int maxTileX, int maxTileZ) {
         this.maxTileX = maxTileX;
@@ -43,7 +74,6 @@ public class World {
         this.levelTileOverlayShape = new byte[4][this.maxTileX][this.maxTileZ];
         this.levelTileOverlayRotation = new byte[4][this.maxTileX][this.maxTileZ];
 
-        this.levelOccludemap = new int[4][this.maxTileX + 1][this.maxTileZ + 1];
         this.levelShademap = new byte[4][this.maxTileX + 1][this.maxTileZ + 1];
         this.levelLightmap = new int[this.maxTileX + 1][this.maxTileZ + 1];
 
@@ -81,8 +111,186 @@ public class World {
         }
     }
 
+    public void loadLocations(World3D scene, MapData mapData) {
+        if (mapData.locations != null) {
+            for(LocData loc: mapData.locations) {
+                this.addLoc(loc.level, loc.x, loc.z, scene, locs, loc.id, loc.shape, loc.rotation);
+            }
+        }
+    }
+
+    private void addLoc(int level, int x, int z, World3D scene, LinkList locs, int locId, int shape, int rotation) {
+        int heightSW = this.levelHeightmap[level][x][z];
+        int heightSE = this.levelHeightmap[level][x + 1][z];
+        int heightNW = this.levelHeightmap[level][x + 1][z + 1];
+        int heightNE = this.levelHeightmap[level][x][z + 1];
+        int y = (heightSW + heightSE + heightNW + heightNE >> 2);
+        LocType loc = LocType.get(locId);
+        String target = loc.model;
+        Integer modelId = FileLoader.getModelMap().get(target);
+
+
+        if (modelId == null) {
+            String shapeSuffix = SHAPE_SUFFIX_MAP.get(shape);
+
+            if (shapeSuffix != null) {
+                modelId = FileLoader.getModelMap().get(target + shapeSuffix);
+            } else {
+                System.err.println("Unexpected shape value: " + shape);
+            }
+        }
+
+
+        if (modelId == null) {
+            modelId = findModelWithSuffix(target);
+        }
+
+
+        if (modelId == null) {
+            System.out.println("No model id " + target);
+            return;
+        }
+
+        int bitset = x + (z << 7) + (locId << 14) + 0x40000000;
+        if (!loc.active) {
+            bitset += Integer.MIN_VALUE;
+        }
+
+        byte info = (byte) ((rotation << 6) + shape);
+        Model model;
+
+        int width;
+        int offset;
+        Model model1;
+        if (shape == LocType.GROUNDDECOR) {
+            model = loc.getModel(modelId, rotation, heightSW, heightSE, heightNW, heightNE, -1, x, z);
+            scene.addGroundDecoration(model, level, x, z, y, bitset, info);
+        } else if (shape == LocType.CENTREPIECE_STRAIGHT || shape == LocType.CENTREPIECE_DIAGONAL) {
+            model = loc.getModel(modelId, rotation, heightSW, heightSE, heightNW, heightNE, -1, x, z);
+            if (model != null) {
+                int yaw = 0;
+                if (shape == LocType.CENTREPIECE_DIAGONAL) {
+                    yaw += 256;
+                }
+                int height;
+                if (rotation == 1 || rotation == 3) {
+                    width = loc.length;
+                    height = loc.width;
+                } else {
+                    width = loc.width;
+                    height = loc.length;
+                }
+                if (scene.addLoc(level, x, z, y, model, null, bitset, info, width, height, yaw) && loc.shadow) {
+                    for (int dx = 0; dx <= width; dx++) {
+                        for (int dz = 0; dz <= height; dz++) {
+                            int shade = model.radius / 4;
+                            if (shade > 30) {
+                                shade = 30;
+                            }
+
+                            if (shade > this.levelShademap[level][x + dx][z + dz]) {
+                                this.levelShademap[level][x + dx][z + dz] = (byte) shade;
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (shape >= LocType.ROOF_STRAIGHT) {
+            model = loc.getModel(modelId, rotation, heightSW, heightSE, heightNW, heightNE, -1, x, z);
+            scene.addLoc(level, x, z, y, model, null, bitset, info, 1, 1, 0);
+        } else if (shape == LocType.WALL_STRAIGHT) {
+            model = loc.getModel(modelId, rotation, heightSW, heightSE, heightNW, heightNE, -1, x, z);
+            scene.addWall(level, x, z, y, ROTATION_WALL_TYPE[rotation], 0, model, null, bitset, info);
+
+            if (rotation == 0) {
+                if (loc.shadow) {
+                    this.levelShademap[level][x][z] = 50;
+                    this.levelShademap[level][x][z + 1] = 50;
+                }
+            } else if (rotation == 1) {
+                if (loc.shadow) {
+                    this.levelShademap[level][x][z + 1] = 50;
+                    this.levelShademap[level][x + 1][z + 1] = 50;
+                }
+            } else if (rotation == 2) {
+                if (loc.shadow) {
+                    this.levelShademap[level][x + 1][z] = 50;
+                    this.levelShademap[level][x + 1][z + 1] = 50;
+                }
+            } else if (rotation == 3) {
+                if (loc.shadow) {
+                    this.levelShademap[level][x][z] = 50;
+                    this.levelShademap[level][x + 1][z] = 50;
+                }
+            }
+            if (loc.wallwidth != 16) {
+                scene.setWallDecorationOffset(level, x, z, loc.wallwidth);
+            }
+        } else if (shape == LocType.WALL_DIAGONALCORNER) {
+            model = loc.getModel(modelId, rotation, heightSW, heightSE, heightNW, heightNE, -1, x, z);
+            scene.addWall(level, x, z, y, ROTATION_WALL_CORNER_TYPE[rotation], 0, model, null, bitset, info);
+            if (loc.shadow) {
+                if (rotation == 0) {
+                    this.levelShademap[level][x][z + 1] = 50;
+                } else if (rotation == 1) {
+                    this.levelShademap[level][x + 1][z + 1] = 50;
+                } else if (rotation == 2) {
+                    this.levelShademap[level][x + 1][z] = 50;
+                } else if (rotation == 3) {
+                    this.levelShademap[level][x][z] = 50;
+                }
+            }
+        } else if (shape == LocType.WALL_L) {
+            int nextRotation = rotation + 1 & 0x3;
+            Model model3 = loc.getModel(modelId, rotation + 4, heightSW, heightSE, heightNW, heightNE, -1, x, z);
+            model1 = loc.getModel(modelId, nextRotation, heightSW, heightSE, heightNW, heightNE, -1, x, z);
+            scene.addWall(level, x, z, y, ROTATION_WALL_TYPE[rotation], ROTATION_WALL_TYPE[nextRotation], model3, model1, bitset, info);
+            if (loc.wallwidth != 16) {
+                scene.setWallDecorationOffset(level, x, z, loc.wallwidth);
+            }
+        } else if (shape == LocType.WALL_SQUARECORNER) {
+            model = loc.getModel(modelId, rotation, heightSW, heightSE, heightNW, heightNE, -1, x, z);
+            scene.addWall(level, x, z, y, ROTATION_WALL_CORNER_TYPE[rotation], 0, model, null, bitset, info);
+
+            if (loc.shadow) {
+                if (rotation == 0) {
+                    this.levelShademap[level][x][z + 1] = 50;
+                } else if (rotation == 1) {
+                    this.levelShademap[level][x + 1][z + 1] = 50;
+                } else if (rotation == 2) {
+                    this.levelShademap[level][x + 1][z] = 50;
+                } else if (rotation == 3) {
+                    this.levelShademap[level][x][z] = 50;
+                }
+            }
+        } else if (shape == LocType.WALL_DIAGONAL) {
+            model = loc.getModel(modelId, rotation, heightSW, heightSE, heightNW, heightNE, -1, x, z);
+            scene.addLoc(level, x, z, y, model, null, bitset, info, 1, 1, 0);
+        } else if (shape == LocType.WALLDECOR_STRAIGHT_NOOFFSET) {
+            model = loc.getModel(modelId, 0, heightSW, heightSE, heightNW, heightNE, -1, x, z);
+            scene.setWallDecoration(level, x, z, y, 0, 0, bitset, model, info, rotation * 512, ROTATION_WALL_TYPE[rotation]);
+        } else if (shape == LocType.WALLDECOR_STRAIGHT_OFFSET) {
+            offset = 16;
+            width = scene.getWallBitset(level, x, z);
+            if (width > 0) {
+                offset = LocType.get(width >> 14 & 0x7FFF).wallwidth;
+            }
+            model1 = loc.getModel(modelId, 0, heightSW, heightSE, heightNW, heightNE, -1, x, z);
+            scene.setWallDecoration(level, x, z, y, WALL_DECORATION_ROTATION_FORWARD_X[rotation] * offset, WALL_DECORATION_ROTATION_FORWARD_Z[rotation] * offset, bitset, model1, info, rotation * 512, ROTATION_WALL_TYPE[rotation]);
+        } else if (shape == LocType.WALLDECOR_DIAGONAL_OFFSET) {
+            model = loc.getModel(modelId, 0, heightSW, heightSE, heightNW, heightNE, -1, x, z);
+            scene.setWallDecoration(level, x, z, y, 0, 0, bitset, model, info, rotation, 256);
+        } else if (shape == LocType.WALLDECOR_DIAGONAL_NOOFFSET) {
+            model = loc.getModel(modelId, 0, heightSW, heightSE, heightNW, heightNE, -1, x, z);
+            scene.setWallDecoration(level, x, z, y, 0, 0, bitset, model, info, rotation, 512);
+        } else if (shape == LocType.WALLDECOR_DIAGONAL_BOTH) {
+            model = loc.getModel(modelId, 0, heightSW, heightSE, heightNW, heightNE, -1, x, z);
+            scene.setWallDecoration(level, x, z, y, 0, 0, bitset, model, info, rotation, 768);
+        }
+    }
+
     public static int perlinNoise(int x, int z) {
-        int value = interpolatedNoise(x + 45365, z + 91923, 4) + (interpolatedNoise(x + 10294, z + 37821, 2) - 128 >> 1) + (interpolatedNoise(x, z, 1) - 128 >> 2) - 128;
+        int value = perlinScale(x + 45365, z + 91923, 4) + (perlinScale(x + 10294, z + 37821, 2) - 128 >> 1) + (perlinScale(x, z, 1) - 128 >> 2) - 128;
         value = (int) ((double) value * 0.3D) + 35;
         if (value < 10) {
             value = 10;
@@ -92,7 +300,7 @@ public class World {
         return value;
     }
 
-    private static int interpolatedNoise(int x, int z, int scale) {
+    private static int perlinScale(int x, int z, int scale) {
         int intX = x / scale;
         int fracX = x & scale - 1;
         int intZ = z / scale;
@@ -115,14 +323,14 @@ public class World {
         int corners = noise(x - 1, y - 1) + noise(x + 1, y - 1) + noise(x - 1, y + 1) + noise(x + 1, y + 1);
         int sides = noise(x - 1, y) + noise(x + 1, y) + noise(x, y - 1) + noise(x, y + 1);
         int center = noise(x, y);
-        return corners / 16 + sides / 8 + center / 4;
+        return (corners / 16) + (sides / 8) + (center / 4);
     }
 
     private static int noise(int x, int y) {
-        int n = x + y * 57;
-        int n1 = n << 13 ^ n;
-        int n2 = n1 * (n1 * n1 * 15731 + 789221) + 1376312589 & Integer.MAX_VALUE;
-        return n2 >> 19 & 0xFF;
+        long n = (long)x + (long)y * 57L;
+        long n1 = (n << 13) ^ n;
+        long result = (n1 * (n1 * n1 * 15731L + 789221L) + 1376312589L) & 0x7FFFFFFFL;
+        return (int)(result >> 19 & 255);
     }
 
     public static int mulHSL(int hsl, int lightness) {
@@ -322,19 +530,6 @@ public class World {
                                     tintColor = this.hsl24to16(randomHue, saturation, lightness);
                                 }
 
-                                if (level > 0) {
-                                    boolean occludes = underlayId != 0 || this.levelTileOverlayShape[level][x0][z0] == 0;
-
-                                    if (overlayId > 0 && !FloType.getInstances()[overlayId - 1].occlude) {
-                                        occludes = false;
-                                    }
-
-                                    // occludes && flat
-                                    if (occludes && heightSW == heightSE && heightSW == heightNE && heightSW == heightNW) {
-                                        this.levelOccludemap[level][x0][z0] |= 0x924;
-                                    }
-                                }
-
                                 int shadeColor = 0;
                                 if (baseColor != -1) {
                                     shadeColor = Pix3D.colourTable[mulHSL(tintColor, 96)];
@@ -367,187 +562,34 @@ public class World {
                 }
             }
         }
-//            for (int stz = 1; stz < this.maxTileZ - 1; stz++) {
-//                for (int stx = 1; stx < this.maxTileX - 1; stx++) {
-//                    scene.setDrawLevel(level, stx, stz, this.getDrawLevel(level, stx, stz));
-//                }
-//            }
-//        }
-
-//        if (!fullbright) {
-//            scene.buildModels(64, 768, -50, -10, -50);
-//        }
-            for (int x = 0; x < this.maxTileX; x++) {
-                for (int z = 0; z < this.maxTileZ; z++) {
-                    if ((this.levelTileFlags[1][x][z] & 0x2) == 2) {
-                        scene.setBridge(x, z);
-                    }
+        scene.buildModels(64, 768, -50, -10, -50);
+        for (int x = 0; x < this.maxTileX; x++) {
+            for (int z = 0; z < this.maxTileZ; z++) {
+                if ((this.levelTileFlags[1][x][z] & 0x2) == 2) {
+                    scene.setBridge(x, z);
                 }
             }
-
-            if (!fullbright) {
-                int wall0 = 0x1; // this flag is set by walls with rotation 0 or 2
-                int wall1 = 0x2; // this flag is set by walls with rotation 1 or 3
-                int floor = 0x4; // this flag is set by floors which are flat
-
-                for (int topLevel = 0; topLevel < 4; topLevel++) {
-                    if (topLevel > 0) {
-                        wall0 <<= 0x3;
-                        wall1 <<= 0x3;
-                        floor <<= 0x3;
-                    }
-
-                    for (int level2 = 0; level2 <= topLevel; level2++) {
-                        for (int tileZ = 0; tileZ <= this.maxTileZ; tileZ++) {
-                            for (int tileX = 0; tileX <= this.maxTileX; tileX++) {
-                                if ((this.levelOccludemap[level2][tileX][tileZ] & wall0) != 0) {
-                                    int minTileZ = tileZ;
-                                    int maxTileZ = tileZ;
-                                    int minLevel = level2;
-                                    int maxLevel = level2;
-
-                                    while (minTileZ > 0 && (this.levelOccludemap[level2][tileX][minTileZ - 1] & wall0) != 0) {
-                                        minTileZ--;
-                                    }
-
-                                    while (maxTileZ < this.maxTileZ && (this.levelOccludemap[level2][tileX][maxTileZ + 1] & wall0) != 0) {
-                                        maxTileZ++;
-                                    }
-
-                                    find_min_level:
-                                    while (minLevel > 0) {
-                                        for (int z = minTileZ; z <= maxTileZ; z++) {
-                                            if ((this.levelOccludemap[minLevel - 1][tileX][z] & wall0) == 0) {
-                                                break find_min_level;
-                                            }
-                                        }
-                                        minLevel--;
-                                    }
-
-                                    find_max_level:
-                                    while (maxLevel < topLevel) {
-                                        for (int z = minTileZ; z <= maxTileZ; z++) {
-                                            if ((this.levelOccludemap[maxLevel + 1][tileX][z] & wall0) == 0) {
-                                                break find_max_level;
-                                            }
-                                        }
-                                        maxLevel++;
-                                    }
-
-                                    int area = (maxLevel + 1 - minLevel) * (maxTileZ + 1 - minTileZ);
-                                    if (area >= 8) {
-                                        int minY = this.levelHeightmap[maxLevel][tileX][minTileZ] - 240;
-                                        int maxX = this.levelHeightmap[minLevel][tileX][minTileZ];
-
-                                        World3D.addOccluder(topLevel, 1, tileX * 128, minY, minTileZ * 128, tileX * 128, maxX, maxTileZ * 128 + 128);
-
-                                        for (int l = minLevel; l <= maxLevel; l++) {
-                                            for (int z = minTileZ; z <= maxTileZ; z++) {
-                                                this.levelOccludemap[l][tileX][z] &= ~wall0;
-                                            }
-                                        }
-                                    }
-                                }
-
-                                if ((this.levelOccludemap[level2][tileX][tileZ] & wall1) != 0) {
-                                    int minTileX = tileX;
-                                    int maxTileX = tileX;
-                                    int minLevel = level2;
-                                    int maxLevel = level2;
-
-                                    while (minTileX > 0 && (this.levelOccludemap[level2][minTileX - 1][tileZ] & wall1) != 0) {
-                                        minTileX--;
-                                    }
-
-                                    while (maxTileX < this.maxTileX && (this.levelOccludemap[level2][maxTileX + 1][tileZ] & wall1) != 0) {
-                                        maxTileX++;
-                                    }
-
-                                    find_min_level2:
-                                    while (minLevel > 0) {
-                                        for (int x = minTileX; x <= maxTileX; x++) {
-                                            if ((this.levelOccludemap[minLevel - 1][x][tileZ] & wall1) == 0) {
-                                                break find_min_level2;
-                                            }
-                                        }
-                                        minLevel--;
-                                    }
-
-                                    find_max_level2:
-                                    while (maxLevel < topLevel) {
-                                        for (int x = minTileX; x <= maxTileX; x++) {
-                                            if ((this.levelOccludemap[maxLevel + 1][x][tileZ] & wall1) == 0) {
-                                                break find_max_level2;
-                                            }
-                                        }
-                                        maxLevel++;
-                                    }
-
-                                    int area = (maxLevel + 1 - minLevel) * (maxTileX + 1 - minTileX);
-
-                                    if (area >= 8) {
-                                        int minY = this.levelHeightmap[maxLevel][minTileX][tileZ] - 240;
-                                        int maxY = this.levelHeightmap[minLevel][minTileX][tileZ];
-
-                                        World3D.addOccluder(topLevel, 2, minTileX * 128, minY, tileZ * 128, maxTileX * 128 + 128, maxY, tileZ * 128);
-
-                                        for (int l = minLevel; l <= maxLevel; l++) {
-                                            for (int x = minTileX; x <= maxTileX; x++) {
-                                                this.levelOccludemap[l][x][tileZ] &= ~wall1;
-                                            }
-                                        }
-                                    }
-                                }
-                                if ((this.levelOccludemap[level2][tileX][tileZ] & floor) != 0) {
-                                    int minTileX = tileX;
-                                    int maxTileX = tileX;
-                                    int minTileZ = tileZ;
-                                    int maxTileZ = tileZ;
-
-                                    while (minTileZ > 0 && (this.levelOccludemap[level2][tileX][minTileZ - 1] & floor) != 0) {
-                                        minTileZ--;
-                                    }
-
-                                    while (maxTileZ < this.maxTileZ && (this.levelOccludemap[level2][tileX][maxTileZ + 1] & floor) != 0) {
-                                        maxTileZ++;
-                                    }
-
-                                    find_min_tile_xz:
-                                    while (minTileX > 0) {
-                                        for (int z = minTileZ; z <= maxTileZ; z++) {
-                                            if ((this.levelOccludemap[level2][minTileX - 1][z] & floor) == 0) {
-                                                break find_min_tile_xz;
-                                            }
-                                        }
-                                        minTileX--;
-                                    }
-
-                                    find_max_tile_xz:
-                                    while (maxTileX < this.maxTileX) {
-                                        for (int z = minTileZ; z <= maxTileZ; z++) {
-                                            if ((this.levelOccludemap[level2][maxTileX + 1][z] & floor) == 0) {
-                                                break find_max_tile_xz;
-                                            }
-                                        }
-                                        maxTileX++;
-                                    }
-
-                                    if ((maxTileX + 1 - minTileX) * (maxTileZ + 1 - minTileZ) >= 4) {
-                                        int y = this.levelHeightmap[level2][minTileX][minTileZ];
-
-                                        World3D.addOccluder(topLevel, 4, minTileX * 128, y, minTileZ * 128, maxTileX * 128 + 128, y, maxTileZ * 128 + 128);
-
-                                        for (int x = minTileX; x <= maxTileX; x++) {
-                                            for (int z = minTileZ; z <= maxTileZ; z++) {
-                                                this.levelOccludemap[level2][x][z] &= ~floor;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        }
     }
+
+    public int getHeightmapY(int level, int tileX, int tileZ) {
+        int realLevel = level;
+        if (level < 3 && (this.levelTileFlags[1][tileX][tileZ] & 0x2) == 2) {
+            realLevel = level + 1;
+        }
+        int y00 = this.levelHeightmap[realLevel][tileX][tileZ] * (128 - tileX) + this.levelHeightmap[realLevel][tileX + 1][tileZ] * tileX >> 7;
+        int y11 = this.levelHeightmap[realLevel][tileX][tileZ + 1] * (128 - tileX) + this.levelHeightmap[realLevel][tileX + 1][tileZ + 1] * tileX >> 7;
+        return y00 * (128 - tileZ) + y11 * tileZ >> 7;
+    }
+
+    private static Integer findModelWithSuffix(String target) {
+        for (String suffix : SUFFIXES) {
+            Integer modelId = FileLoader.getModelMap().get(target + suffix);
+            if (modelId != null) {
+                return modelId;
+            }
+        }
+        return null;
+    }
+
 }

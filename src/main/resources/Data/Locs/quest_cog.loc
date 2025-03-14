@@ -1,0 +1,105 @@
+[red_clock_spindle]
+name=Clock spindle
+desc=Seems to be some kind of clock part.
+model=model_loc_25
+active=yes
+recol1s=152
+recol1d=30753
+
+[black_clock_spindle]
+name=Clock spindle
+desc=Seems to be some kind of clock part.
+model=model_loc_25
+active=yes
+recol1s=152
+recol1d=0
+
+[white_clock_spindle]
+name=Clock spindle
+desc=Seems to be some kind of clock part.
+model=model_loc_25
+active=yes
+recol1s=152
+recol1d=32767
+
+[blue_clock_spindle]
+name=Clock spindle
+desc=Seems to be some kind of clock part.
+model=model_loc_25
+active=yes
+
+[red_clock_spindle_incorrect]
+name=Clock spindle
+desc=Seems to be some kind of clock part.
+model=model_loc_25
+active=yes
+recol1s=152
+recol1d=30753
+category=incorrect_clock_spindle
+
+[black_clock_spindle_incorrect]
+name=Clock spindle
+desc=Seems to be some kind of clock part.
+model=model_loc_25
+active=yes
+recol1s=152
+recol1d=0
+category=incorrect_clock_spindle
+
+[white_clock_spindle_incorrect]
+name=Clock spindle
+desc=Seems to be some kind of clock part.
+model=model_loc_25
+active=yes
+recol1s=152
+recol1d=32767
+category=incorrect_clock_spindle
+
+[blue_clock_spindle_incorrect]
+name=Clock spindle
+desc=Seems to be some kind of clock part.
+model=model_loc_25
+active=yes
+category=incorrect_clock_spindle
+
+[loc_33]
+name=Lever
+desc=Yup, definitely a lever.
+model=model_loc_33
+active=yes
+op1=Pull
+
+[loc_34]
+name=Lever
+desc=Yup, definitely a lever.
+model=model_loc_34
+active=yes
+op1=Pull
+
+[loc_35]
+name=Lever
+desc=Yup, definitely a lever.
+model=model_loc_34
+active=yes
+op1=Pull
+
+[loc_36]
+name=Lever
+desc=Yup, definitely a lever.
+model=model_loc_33
+active=yes
+op1=Pull
+
+[quest_cog_rate_gate]
+name=Gate
+desc=Stops people walking past.
+model=model_loc_37
+active=yes
+op1=Go-through
+
+[quest_cog_food_trough]
+name=Food trough
+desc=Animals have no table manners.
+model=model_loc_40
+width=2
+active=yes
