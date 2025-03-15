@@ -16,11 +16,6 @@ public class TileOverlay {
     public final int rotation;
     public final int backgroundRgb;
     public final int foregroundRgb;
-    public static final int[] tmpScreenX = new int[6];
-    public static final int[] tmpScreenY = new int[6];
-    public static final int[] tmpViewspaceX = new int[6];
-    public static final int[] tmpViewspaceY = new int[6];
-    public static final int[] tmpViewspaceZ = new int[6];
     public static final int[][] SHAPE_POINTS = new int[][] {
             { 1, 3, 5, 7 },
             { 1, 3, 5, 7 }, // PLAIN_SHAPE
@@ -36,7 +31,12 @@ public class TileOverlay {
             { 1, 3, 5, 7, 11, 12 }, // FAN_BIG_SHAPE
             { 1, 3, 5, 7, 13, 14 } // TRAPEZIUM_SHAPE
     };
-
+    public static final String[] SHAPE_NAMES = new String[] {
+        "Plain", "Diagonal", "Left Semi Diagonal Small",
+        "Right Semi Diagonal Small", "Left Semi Diagonal Big",
+        "Right Semi Diagonal Big", "Half Square", "Corner Small",
+        "Corner Big", "Fan Small", "Fan Big","Trapezium"
+    };
     public static final int[][] SHAPE_PATHS = new int[][] {
             { 0, 1, 2, 3, 0, 0, 1, 3 },
             { 1, 1, 2, 3, 1, 0, 1, 3 }, // PLAIN_SHAPE
@@ -48,7 +48,7 @@ public class TileOverlay {
             { 0, 4, 1, 2, 0, 4, 2, 5, 1, 0, 4, 5, 1, 0, 5, 3 }, // HALF_SQUARE_SHAPE
             { 0, 4, 1, 2, 0, 4, 2, 3, 0, 4, 3, 5, 1, 0, 4, 5 }, // CORNER_SMALL_SHAPE
             { 0, 0, 4, 5, 1, 4, 1, 2, 1, 4, 2, 3, 1, 4, 3, 5 }, // CORNER_BIG_SHAPE
-            { 1, 0, 1, 5, 1, 1, 4, 5, 1, 1, 2, 4, 1, 0, 5, 3, 1, 5, 4, 3, 1, 4, 2, 3 },
+            { 0, 0, 1, 5, 0, 1, 4, 5, 0, 1, 2, 4, 1, 0, 5, 3, 1, 5, 4, 3, 1, 4, 2, 3 }, //FAN_SMALL_SHAPE
             { 1, 0, 1, 5, 1, 1, 4, 5, 1, 1, 2, 4, 0, 0, 5, 3, 0, 5, 4, 3, 0, 4, 2, 3 }, // FAN_BIG_SHAPE
             { 1, 0, 5, 4, 1, 0, 1, 5, 0, 0, 4, 3, 0, 4, 5, 3, 0, 5, 2, 3, 0, 1, 2, 5 } // TRAPEZIUM_SHAPE
     };

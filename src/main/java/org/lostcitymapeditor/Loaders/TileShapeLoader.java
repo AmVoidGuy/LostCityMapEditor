@@ -7,8 +7,8 @@ import java.util.Map;
 public class TileShapeLoader {
     public static void loadShapeImages(Map<Integer, Image> shapeImages) {
         for (int i = 0; i <= 11; i++) {
-            String resourcePath = "/Data/TileShapes/Shape-" + i + ".png";
-            try (InputStream inputStream = FileLoader.class.getResourceAsStream(resourcePath)) {
+            String resourcePath = "Data/TileShapes/Shape-" + i + ".png";
+            try (InputStream inputStream = TileShapeLoader.class.getClassLoader().getResourceAsStream(resourcePath)) {
                 if (inputStream != null) {
                     Image image = new Image(inputStream);
                     shapeImages.put(i, image);

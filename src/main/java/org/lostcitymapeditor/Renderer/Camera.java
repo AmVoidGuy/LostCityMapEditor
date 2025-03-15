@@ -3,6 +3,8 @@ package org.lostcitymapeditor.Renderer;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import static org.lwjgl.glfw.GLFW.*;
+
 public class Camera {
     private Vector3f position;
     private Vector3f front;
@@ -55,6 +57,22 @@ public class Camera {
         if (direction == CameraMovement.ZOOM_OUT) {
             position.add(new Vector3f(0,1,0).mul(velocity));
         }
+    }
+
+    //In Camera Class, add the following function:
+    public void processKeyboardInput(long window, float deltaTime) {
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+            processKeyboard(CameraMovement.FORWARD, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+            processKeyboard(CameraMovement.BACKWARD, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+            processKeyboard(CameraMovement.LEFT, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+            processKeyboard(CameraMovement.RIGHT, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+            processKeyboard(CameraMovement.ZOOM_IN, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+            processKeyboard(CameraMovement.ZOOM_OUT, deltaTime);
     }
 
     public void processMouseMovement(float xOffset, float yOffset, boolean constrainPitch) {

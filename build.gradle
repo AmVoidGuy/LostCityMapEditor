@@ -1,7 +1,6 @@
 plugins {
     id 'java'
     id 'application'
-    id 'org.javamodularity.moduleplugin' version '1.8.12'
     id 'org.openjfx.javafxplugin' version '0.0.13'
     id 'org.beryx.jlink' version '2.25.0'
 }
@@ -27,6 +26,10 @@ tasks.withType(JavaCompile) {
 application {
     mainModule = 'org.lostcitymapeditor'
     mainClass = 'org.lostcitymapeditor.LostCityMapEditor'
+    applicationDefaultJvmArgs = [
+            '--add-opens', 'javafx.graphics/javafx.scene.effect=com.gluonhq.attach.util',
+            '--add-exports', 'javafx.graphics/javafx.scene.effect=ALL-UNNAMED'
+    ]
 }
 
 javafx {
@@ -45,10 +48,6 @@ dependencies {
     implementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
     implementation('org.controlsfx:controlsfx:11.1.2')
     implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.1.10'
-    implementation('com.github.almasb:fxgl:17.3') {
-        exclude(group: 'org.openjfx')
-        exclude(group: 'org.jetbrains.kotlin')
-    }
     implementation 'org.reflections:reflections:0.10.2'
     implementation 'io.github.spair:imgui-java-binding:1.86.10'
     implementation 'io.github.spair:imgui-java-lwjgl3:1.86.10'
@@ -145,14 +144,44 @@ test {
     useJUnitPlatform()
 }
 
+jar {
+    manifest {
+        attributes 'Main-Class': 'org.lostcitymapeditor.LostCityMapEditor'
+    }
+
+    // Include all dependencies in the JAR
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+
+    // Handle duplicate files
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+}
+
 jlink {
-    imageZip = project.file("${buildDir}/distributions/app-${javafx.platform.classifier}.zip")
     options = ['--strip-debug', '--compress', '2', '--no-header-files', '--no-man-pages']
     launcher {
-        name = 'app'
+        name = 'LostCityMapEditor'
+        jvmArgs = ['-Djava.library.path=$APPDIR/lib']
     }
+
+    // Include native libraries in the image
+    addExtraDependencies("javafx")
+    addExtraDependencies("lwjgl")
+
+    // Ensure all modules needed are included
+    forceMerge("javafx")
+    forceMerge("lwjgl")
 }
 
 jlinkZip {
     group = 'distribution'
+}
+
+task createDistribution(type: Zip, dependsOn: [build, jlinkZip]) {
+    archiveFileName = "LostCityMapEditor-${version}-distribution.zip"
+    destinationDirectory = file("${buildDir}/distributions")
+
+    from jar
+    from "${buildDir}/image"
 }

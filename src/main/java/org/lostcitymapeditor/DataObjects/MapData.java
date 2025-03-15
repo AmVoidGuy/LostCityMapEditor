@@ -11,4 +11,19 @@ public class MapData {
 
     public MapData() {
     }
+
+    public synchronized List<LocData> getLocData(int level, int x, int z) {
+        List<LocData> results = new ArrayList<>();
+        for (LocData loc : locations) {
+            if (loc.level == level && loc.x == x && loc.z == z) {
+                results.add(loc);
+            }
+        }
+        return results;
+    }
+
+    public synchronized void removeLocData(int level, int x, int z) {
+        locations.removeIf(loc -> loc.level == level && loc.x == x && loc.z == z);
+    }
+
 }

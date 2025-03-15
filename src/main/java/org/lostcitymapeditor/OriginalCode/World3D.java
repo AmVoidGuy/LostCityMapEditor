@@ -6,7 +6,7 @@ public class World3D {
     private final int maxTileX = 64;
     private final int maxTileZ = 64;
     private final int[][][] levelHeightmaps;
-    private final Ground[][][] levelTiles;
+    public final Ground[][][] levelTiles;
     private final int[] mergeIndexA = new int[10000];
     private final int[] mergeIndexB = new int[10000];
     private int tmpMergeIndex;
@@ -47,20 +47,21 @@ public class World3D {
     }
 
     public void setBridge(int stx, int stz) {
-        Ground ground = this.levelTiles[0][stx][stz];
-        for (int level = 0; level < 3; level++) {
-            this.levelTiles[level][stx][stz] = this.levelTiles[level + 1][stx][stz];
-            if (this.levelTiles[level][stx][stz] != null) {
-                this.levelTiles[level][stx][stz].level--;
-
-            }
-        }
-
-        if (this.levelTiles[0][stx][stz] == null) {
-            this.levelTiles[0][stx][stz] = new Ground(0, stx, stz);
-        }
-        this.levelTiles[0][stx][stz].bridge = ground;
-        this.levelTiles[3][stx][stz] = null;
+        //TODO: Disable for now
+//        Ground ground = this.levelTiles[0][stx][stz];
+//        for (int level = 0; level < 3; level++) {
+//            this.levelTiles[level][stx][stz] = this.levelTiles[level + 1][stx][stz];
+//            if (this.levelTiles[level][stx][stz] != null) {
+//                this.levelTiles[level][stx][stz].level--;
+//
+//            }
+//        }
+//
+//        if (this.levelTiles[0][stx][stz] == null) {
+//            this.levelTiles[0][stx][stz] = new Ground(0, stx, stz);
+//        }
+//        this.levelTiles[0][stx][stz].bridge = ground;
+//        this.levelTiles[3][stx][stz] = null;
     }
 
     public void draw(int currentLevel) {
@@ -80,16 +81,16 @@ public class World3D {
         int tileZ = tile.z;
         int level = tile.level;
 
-        if (tile.bridge != null) {
-            Ground bridge = tile.bridge;
-            if (bridge.underlay == null) {
-                if (bridge.overlay != null) {
-                    this.drawTileOverlay(tileX, tileZ, level, bridge.overlay);
-                }
-            } else {
-                this.drawTileUnderlay(bridge.underlay, level, tileX, tileZ);
-            }
-        }
+//        if (tile.bridge != null) {
+//            Ground bridge = tile.bridge;
+//            if (bridge.underlay == null) {
+//                if (bridge.overlay != null) {
+//                    this.drawTileOverlay(tileX, tileZ, level, bridge.overlay);
+//                }
+//            } else {
+//                this.drawTileUnderlay(bridge.underlay, level, tileX, tileZ);
+//            }
+//        }
         if (tile.underlay == null) {
             if (tile.overlay != null) {
                 this.drawTileOverlay(tileX, tileZ, level, tile.overlay);
@@ -143,8 +144,8 @@ public class World3D {
         int colorSE = underlay.southeastColor;
         int colorSW = underlay.southwestColor;
 
-        newTriangle.addTriangle(tileX, tileZ, level, 0, 0, sx2, sy2, sz2, sx3, sy3, sz3, sx1, sy1, sz1, colorNE, colorNW, colorSE, underlay.textureId, null);
-        newTriangle.addTriangle(tileX, tileZ, level, 0, 0, sx0, sy0, sz0, sx1, sy1, sz1, sx3, sy3, sz3, colorSW, colorSE, colorNW, underlay.textureId, null);
+        newTriangle.addTriangle(false, tileX, tileZ, level, 0, 0, sx2, sy2, sz2, sx3, sy3, sz3, sx1, sy1, sz1, colorNE, colorNW, colorSE, underlay.textureId, null);
+        newTriangle.addTriangle(false, tileX, tileZ, level, 0, 0, sx0, sy0, sz0, sx1, sy1, sz1, sx3, sy3, sz3, colorSW, colorSE, colorNW, underlay.textureId, null);
     }
 
     private void drawTileOverlay(int tileX, int tileZ, int level, TileOverlay overlay) {
@@ -180,7 +181,7 @@ public class World3D {
             if(overlay.triangleTextureIds != null) {
                 textureId = overlay.triangleTextureIds[v];
             }
-            newTriangle.addTriangle(tileX, tileZ, level, overlay.shape, overlay.rotation, sx0, y0, sz0, sx1, y1, sz1, sx2, y2, sz2, colorA, colorB, colorC, textureId, null);
+            newTriangle.addTriangle(false, tileX, tileZ, level, overlay.shape, overlay.rotation, sx0, y0, sz0, sx1, y1, sz1, sx2, y2, sz2, colorA, colorB, colorC, textureId, null);
         }
     }
 
@@ -375,28 +376,28 @@ public class World3D {
 
     private void mergeGroundDecorationNormals(int level, int tileX, int tileZ, Model model) {
         Ground tile;
-        if (tileX < this.maxTileX) {
+        if (tileX < this.maxTileX - 1) {
             tile = this.levelTiles[level][tileX + 1][tileZ];
             if (tile != null && tile.groundDecor != null  && tile.groundDecor.model != null && tile.groundDecor.model.vertexNormal != null) {
                 this.mergeNormals(model, tile.groundDecor.model, 128, 0, 0, true);
             }
         }
 
-        if (tileZ < this.maxTileX) {
+        if (tileZ < this.maxTileX - 1) {
             tile = this.levelTiles[level][tileX][tileZ + 1];
             if (tile != null && tile.groundDecor != null && tile.groundDecor.model != null && tile.groundDecor.model.vertexNormal != null) {
                 this.mergeNormals(model, tile.groundDecor.model, 0, 0, 128, true);
             }
         }
 
-        if (tileX < this.maxTileX && tileZ < this.maxTileZ) {
+        if (tileX < this.maxTileX - 1 && tileZ < this.maxTileZ - 1) {
             tile = this.levelTiles[level][tileX + 1][tileZ + 1];
             if (tile != null && tile.groundDecor != null && tile.groundDecor.model != null && tile.groundDecor.model.vertexNormal != null) {
                 this.mergeNormals(model, tile.groundDecor.model, 128, 0, 128, true);
             }
         }
 
-        if (tileX < this.maxTileX && tileZ > 0) {
+        if (tileX < this.maxTileX - 1 && tileZ > 0) {
             tile = this.levelTiles[level][tileX + 1][tileZ - 1];
             if (tile != null && tile.groundDecor != null  && tile.groundDecor.model != null && tile.groundDecor.model.vertexNormal != null) {
                 this.mergeNormals(model, tile.groundDecor.model, 128, 0, -128, true);

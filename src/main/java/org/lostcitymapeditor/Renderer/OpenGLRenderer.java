@@ -4,30 +4,31 @@ import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.embed.swing.JFXPanel;
+import javafx.embed.swing.SwingNode;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import org.joml.*;
-import org.lostcitymapeditor.DataObjects.MapData;
-import org.lostcitymapeditor.DataObjects.OverlayData;
-import org.lostcitymapeditor.DataObjects.TileData;
-import org.lostcitymapeditor.DataObjects.UnderlayData;
-import org.lostcitymapeditor.OriginalCode.Pix3D;
-import org.lostcitymapeditor.OriginalCode.World;
-import org.lostcitymapeditor.OriginalCode.World3D;
-import org.lostcitymapeditor.DataObjects.newTriangle;
+import org.lostcitymapeditor.DataObjects.*;
+import org.lostcitymapeditor.OriginalCode.*;
 import org.lostcitymapeditor.Loaders.FileLoader;
 import org.lostcitymapeditor.Loaders.MapDataLoader;
 import org.lostcitymapeditor.Loaders.TextureLoader;
 import org.lostcitymapeditor.Transformers.MapDataTransformer;
+import org.lostcitymapeditor.Util.ModelViewerSelector;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.glfw.*;
 
+import java.awt.*;
 import java.io.IOException;
 import java.lang.Math;
 import java.util.*;
@@ -46,6 +47,8 @@ import java.nio.IntBuffer;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -70,19 +73,15 @@ public class OpenGLRenderer {
     private float lastFrame = 0.0f;
     private float lastX = 400, lastY = 300;
     private boolean firstMouse = true;
-    private int[] textureIDs;
-    private boolean texturesLoaded = false;
     private List<newTriangle> triangleList;
-    private boolean openglInitialized = false;
     private TileData selectedTile = null;
     private JFXPanel fxPanel;
-    private ComboBox<String> underlayComboBox;
-    private ComboBox<String> overlayComboBox;
-    private ComboBox<Integer> shapeComboBox;
-    private ComboBox<Integer> levelComboBox;
-    private ComboBox<Integer> rotationComboBox;
+    private ListView<Integer> shapeListView;
     private CheckBox locCheckbox;
     private VBox tileInspector;
+    private VBox locInspector;
+    private Label inspectorTitle;
+    private Label locPositionLabel;
     private TextField newHeightTextField;
     public static String currentMapFileName = "m50_50.jm2";
     public static Map<String, Integer> underlayMap;
@@ -90,7 +89,6 @@ public class OpenGLRenderer {
     public static Map<Integer, Image> shapeImages;
     public static int currentLevel = 0;
     private static MapData currentMapData;
-    private Map<String, Object> underlayTileMeshMap;
     public static World world;
     public static World3D world3D;
     public static OpenGLRenderer renderer;
@@ -98,7 +96,8 @@ public class OpenGLRenderer {
     public static int[] distance;
     public static Integer selectedOverlayID = 0;
     public static Integer selectedUnderlayID = 0;
-    public static Integer selectedShape;
+    public static Integer selectedShape = -1;
+    public static Integer selectedFlag = -1;
     public static Label currentMapLabel;
     private Label tilePositionLabel;
     private Label tileOverlayLabel;
@@ -108,7 +107,15 @@ public class OpenGLRenderer {
     private Label tileShapeLabel;
     private Label tileRotationLabel;
     private Label tileTextureLabel;
+    private Label locDetailsLabel;
     private Set<Integer> hoveredTileTriangleIndices = new HashSet<>();
+    private final TextureManager textureManager = new TextureManager();
+    private VertexDataHandler vertexDataHandler = new VertexDataHandler();
+    private final ModelViewer modelViewer = new ModelViewer(300, 350);
+    private ModelViewerSelector modelViewerSelector;
+    private int selectedRotation = -1;
+    private int selectedLocRotation;
+    private int selectedLocShape = 0;
 
     private void updateHoveredTriangle(double mouseX, double mouseY) {
         hoveredTileTriangleIndices.clear();
@@ -117,7 +124,6 @@ public class OpenGLRenderer {
         if (foundTriangle != null) {
             int tileX = foundTriangle.tileData.tileX;
             int tileZ = foundTriangle.tileData.tileZ;
-
             for (int i = 0; i < triangleList.size(); i++) {
                 newTriangle triangle = triangleList.get(i);
                 if (triangle.tileData.tileX == tileX && triangle.tileData.tileZ == tileZ) {
@@ -171,6 +177,11 @@ public class OpenGLRenderer {
     public void drawMapLevel() {
         enqueueGLTask(() -> {
             newTriangle.clearCollectedTriangles();
+            world = new World(REGION_SIZE, REGION_SIZE);
+            world.loadGround(currentMapData);
+            world3D = new World3D(world.levelHeightmap, REGION_SIZE, LEVELS, REGION_SIZE);
+            world.loadLocations(world3D, currentMapData);
+            world.build(world3D);
             world3D.draw(currentLevel);
             List<newTriangle> triangleList = getTriangles();
             setTriangles(triangleList);
@@ -278,95 +289,28 @@ public class OpenGLRenderer {
         JFrame frame = new JFrame("LostCity Map Editor Config");
         fxPanel = new JFXPanel();
         frame.add(fxPanel);
-        frame.setSize(450, 600);
+        frame.setSize(900, 900);
         frame.setVisible(true);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         Platform.runLater(() -> {
             ObservableList<String> mapFiles = MapDataLoader.getJM2Files();
             ListView<String> mapListView = new ListView<>(mapFiles);
-            mapListView.setPrefWidth(200);
+            mapListView.setPrefWidth(150);
 
             ObservableList<String> underlayNames = FXCollections.observableArrayList(underlayMap.keySet());
             underlayNames.addFirst("Original");
             underlayNames.add(1, "Clear");
-            underlayComboBox = new ComboBox<>(underlayNames);
-            underlayComboBox.setPrefWidth(300);
-            underlayComboBox.setCellFactory(param -> new ListCell<>() {
-                private final Rectangle rect;
-
-                {
-                    rect = new Rectangle(20, 20);
-                }
-
-                @Override
-                protected void updateItem(String item, boolean empty) {
-                    super.updateItem(item, empty);
-
-                    if (empty || item == null) {
-                        setText(null);
-                        setGraphic(null);
-                    } else {
-                        setText(item);
-                        Integer color = underlayMap.get(item);
-                        if (color != null) {
-                            rect.setFill(javafx.scene.paint.Color.rgb((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF));
-                            setGraphic(rect);
-                        } else {
-                            rect.setFill(javafx.scene.paint.Color.TRANSPARENT);
-                            setGraphic(null);
-                        }
-                    }
-                }
-            });
-
-            underlayComboBox.setButtonCell(new ListCell<>() {
-                private final Rectangle rect;
-
-                {
-                    rect = new Rectangle(20, 20);
-                }
-
-                @Override
-                protected void updateItem(String item, boolean empty) {
-                    super.updateItem(item, empty);
-
-                    if (empty || item == null) {
-                        setText(null);
-                        setGraphic(null);
-                    } else {
-                        setText(item);
-                        Integer color = underlayMap.get(item);
-                        if (color != null) {
-                            rect.setFill(javafx.scene.paint.Color.rgb((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF));
-                            setGraphic(rect);
-                        } else {
-                            rect.setFill(javafx.scene.paint.Color.TRANSPARENT);
-                            setGraphic(null);
-                        }
-                    }
-                }
-            });
-
-            underlayComboBox.setOnAction(e -> {
-                String selectedUnderlay = underlayComboBox.getValue();
-                if (selectedUnderlay == null || selectedUnderlay.equals("Original")) {
-                    selectedUnderlayID = 0;
-                } else if (selectedUnderlay.equals("Clear")) {
-                    selectedUnderlayID = -1;
-                } else {
-                    selectedUnderlayID = findOverlayOrUnderlayIdByName(selectedUnderlay);
-                }
-            });
 
             ObservableList<String> overlayNames = FXCollections.observableArrayList(overlayMap.keySet());
             overlayNames.addFirst("Original");
             overlayNames.add(1, "Clear");
-            overlayComboBox = new ComboBox<>(overlayNames);
-            overlayComboBox.setPrefWidth(300);
 
-            overlayComboBox.setCellFactory(param -> new ListCell<>() {
-                private ImageView textureView = new ImageView();
+            ListView<String>overlayListView = new ListView<>(overlayNames);
+            overlayListView.setPrefHeight(50); // Adjust as needed
+            overlayListView.setCellFactory(param -> new ListCell<>() {
+                private final Rectangle rect = new Rectangle(20, 20);
+                private final ImageView textureView = new ImageView();
 
                 @Override
                 protected void updateItem(String item, boolean empty) {
@@ -381,11 +325,10 @@ public class OpenGLRenderer {
                             if (overlayData.containsKey("rgb")) {
                                 Integer color = (Integer) overlayData.get("rgb");
                                 if (color != null) {
-                                    setText(item);
-                                    Rectangle rect = new Rectangle(20, 20, javafx.scene.paint.Color.rgb((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF));
+                                    rect.setFill(javafx.scene.paint.Color.rgb((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF));
                                     setGraphic(rect);
                                 } else {
-                                    setText(item);
+                                    rect.setFill(javafx.scene.paint.Color.TRANSPARENT);
                                     setGraphic(null);
                                 }
                             } else if (overlayData.containsKey("texture")) {
@@ -395,87 +338,40 @@ public class OpenGLRenderer {
                                     textureView.setImage(texture);
                                     textureView.setFitWidth(20);
                                     textureView.setFitHeight(20);
-                                    setText(item);
                                     setGraphic(textureView);
                                 } else {
-                                    setText(item);
                                     setGraphic(null);
                                 }
                             } else {
-                                setText(item);
                                 setGraphic(null);
                             }
                         } else {
-                            setText(item);
                             setGraphic(null);
                         }
                     }
                 }
             });
 
-            overlayComboBox.setButtonCell(new ListCell<String>() {
-                private ImageView textureView = new ImageView();
-
-                @Override
-                protected void updateItem(String item, boolean empty) {
-                    super.updateItem(item, empty);
-
-                    if (empty || item == null) {
-                        setText(null);
-                        setGraphic(null);
-                    } else {
-                        Map<String, Object> overlayData = (Map<String, Object>) overlayMap.get(item);
-                        if (overlayData != null) {
-                            if (overlayData.containsKey("rgb")) {
-                                Integer color = (Integer) overlayData.get("rgb");
-                                if (color != null) {
-                                    setText(item);
-                                    Rectangle rect = new Rectangle(20, 20, javafx.scene.paint.Color.rgb((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF));
-                                    setGraphic(rect);
-                                } else {
-                                    setText(item);
-                                    setGraphic(null);
-                                }
-                            } else if (overlayData.containsKey("texture")) {
-                                String textureName = (String) overlayData.get("texture");
-                                Image texture = null;
-                                if (texture != null) {
-                                    textureView.setImage(texture);
-                                    textureView.setFitWidth(20);
-                                    textureView.setFitHeight(20);
-                                    setText(item + "");
-                                    setGraphic(textureView);
-                                } else {
-                                    setText(item + "");
-                                    setGraphic(null);
-                                }
-                            } else {
-                                setText(item);
-                                setGraphic(null);
-                            }
+            overlayListView.getSelectionModel().selectedItemProperty().addListener(
+                    (observable, oldValue, newValue) -> {
+                        if (newValue == null || newValue.equals("Original")) {
+                            selectedOverlayID = 0;
+                        } else if (newValue.equals("Clear")) {
+                            selectedOverlayID = -1;
                         } else {
-                            setText(item);
-                            setGraphic(null);
+                            selectedOverlayID = findOverlayOrUnderlayIdByName(newValue);
                         }
                     }
-                }
-            });
+            );
 
-            overlayComboBox.setOnAction(e -> {
-                String selectedOverlay = overlayComboBox.getValue();
-                if (selectedOverlay == null || selectedOverlay.equals("Original")) {
-                    selectedOverlayID = 0;
-                } else if (selectedOverlay.equals("Clear")) {
-                    selectedOverlayID = -1;
-                } else {
-                    selectedOverlayID = findOverlayOrUnderlayIdByName(selectedOverlay);
-                }
-            });
 
             ObservableList<Integer> shapeValues = FXCollections.observableArrayList(IntStream.range(0, 12).boxed().collect(Collectors.toList()));
-            shapeComboBox = new ComboBox<>(shapeValues);
-            shapeComboBox.setPrefWidth(300);
-            shapeComboBox.setCellFactory(param -> new ListCell<>() {
+            shapeListView = new ListView<>(shapeValues);
+            shapeListView.setPrefWidth(250);
+            shapeListView.setPrefHeight(150);
+            String[] shapeNames = TileOverlay.SHAPE_NAMES;
+
+            shapeListView.setCellFactory(param -> new ListCell<>() {
                 private final ImageView imageView = new ImageView();
 
                 {
@@ -492,56 +388,78 @@ public class OpenGLRenderer {
                         setGraphic(null);
                     } else {
                         Image image = shapeImages.get(item);
+                        String shapeName = (item >= 0 && item < shapeNames.length) ? shapeNames[item] : "Unknown";
                         if (image != null) {
                             imageView.setImage(image);
-                            setText("Shape " + item);
+                            setText(item + " - " + shapeName);
                             setGraphic(imageView);
                         } else {
-                            setText("Shape " + item);
+                            setText(item + " - " + shapeName);
                             setGraphic(null);
                         }
                     }
                 }
             });
 
-            shapeComboBox.setButtonCell(new ListCell<>() {
-                private final ImageView imageView = new ImageView();
+            shapeListView.getSelectionModel().selectedItemProperty().addListener(
+                    (observable, oldValue, newValue) -> {
+                        if (newValue != null) {
+                            selectedShape = newValue;
+                        }
+                    });
 
-                {
-                    imageView.setFitWidth(50);
-                    imageView.setFitHeight(50);
-                }
+            ObservableList<Integer> flagValues = FXCollections.observableArrayList(0, 1, 2, 4, 8, 16);
+            ListView<Integer>flagListView = new ListView<>(flagValues);
+            flagListView.setPrefWidth(250);
+            flagListView.setPrefHeight(150);
 
+            flagListView.setCellFactory(param -> new ListCell<>() {
                 @Override
                 protected void updateItem(Integer item, boolean empty) {
                     super.updateItem(item, empty);
 
                     if (empty || item == null) {
                         setText(null);
-                        setGraphic(null);
                     } else {
-                        Image image = shapeImages.get(item);
-                        if (image != null) {
-                            imageView.setImage(image);
-                            setText("Shape " + item);
-                            setGraphic(imageView);
-                        } else {
-                            setText("Shape " + item);
-                            setGraphic(null);
-                        }
+                        String description = switch (item) {
+                            case 0 -> "Default";
+                            case 1 -> "Unwalkable";
+                            case 2 -> "Bridge";
+                            case 4 -> "Remove roof";
+                            case 8 -> "Render on level below";
+                            case 16 -> "Don't draw on map";
+                            default -> "";
+                        };
+                        setText(item + " - " + description);
                     }
                 }
             });
 
-            shapeComboBox.setOnAction(e -> {
-                selectedShape = shapeComboBox.getValue();
-            });
+            flagListView.getSelectionModel().selectedItemProperty().addListener(
+                    (observable, oldValue, newValue) -> {
+                        if (newValue != null) {
+                            selectedFlag = newValue;
+                        }
+                    });
 
-            levelComboBox = new ComboBox<>();
-            levelComboBox.setItems(FXCollections.observableArrayList(IntStream.range(0, LEVELS).boxed().collect(Collectors.toList())));
-            levelComboBox.setValue(0);
+            Label currentLevelLabel = new Label("Current Level:");
+            ToggleGroup levelToggleGroup = new ToggleGroup();
+            VBox levelRadioButtons = new VBox(5);
+            for (int i = 0; i < LEVELS; i++) {
+                RadioButton levelButton = new RadioButton("Level " + i);
+                levelButton.setToggleGroup(levelToggleGroup);
+                levelButton.setUserData(i);
+                levelRadioButtons.getChildren().add(levelButton);
 
-            Label currentLevelLabel = new Label("Current Level");
+                int level = i; // Capture the loop variable
+                levelButton.setOnAction(e -> {
+                    currentLevel = level;
+                    if (currentMapData != null) {
+                        drawMapLevel();
+                    }
+                });
+            }
+            ((RadioButton) levelRadioButtons.getChildren().get(0)).setSelected(true);
 
             Label displayLabel = new Label("Display:");
             locCheckbox = new CheckBox("Locs");
@@ -549,20 +467,155 @@ public class OpenGLRenderer {
 
             Button exportButton = new Button("Export Map");
 
+            locInspector = new VBox();
+            locInspector.setPadding(new Insets(10));
+            locInspector.setBorder(new Border(new BorderStroke(Color.BLACK, BorderStrokeStyle.SOLID, CornerRadii.EMPTY, BorderWidths.DEFAULT)));
+            locInspector.setPrefWidth(250);
+
+            Label newLocRotationLabel = new Label("New Loc Rotation");
+            VBox locRotationBox = new VBox(5);
+            ToggleGroup locRotationGroup = new ToggleGroup();
+
+            Integer[] rotations = {0, 90, 180, 270};
+            for (Integer rotation : rotations) {
+                RadioButton rb = new RadioButton(rotation.toString());
+                rb.setToggleGroup(locRotationGroup);
+                rb.setUserData(rotation);
+                locRotationBox.getChildren().add(rb);
+            }
+
+            locRotationGroup.selectedToggleProperty().addListener((observable, oldValue, newValue) -> {
+                if (newValue != null) {
+                    selectedLocRotation = (Integer) newValue.getUserData();
+                }
+            });
+
+            Label newLocShapeLabel = new Label("New Loc Shape");
+            ObservableList<Integer> locShapeValues = FXCollections.observableArrayList();
+            for (int i = 0; i <= 22; i++) {
+                locShapeValues.add(i);
+            }
+
+            ListView<Integer>locShapeListView = new ListView<>(locShapeValues);
+            locShapeListView.setPrefWidth(100);
+            locShapeListView.setPrefHeight(100);
+
+            String[] locShapeNames = new String[]{
+                    "Wall Straight", "Wall Diagonal Corner", "Wall L", "Wall Square Corner",
+                    "Wall Decor Straight No Offset", "Wall Decor Straight Offset", "Wall Decor Diagonal Offset",
+                    "Wall Decor Diagonal No Offset", "Wall Decor Diagonal Both", "Wall Diagonal",
+                    "Centrepiece Straight", "Centrepiece Diagonal", "Roof Straight",
+                    "Roof Diagonal With Roof Edge", "Roof Diagonal", "Roof L Concave", "Roof L Convex",
+                    "Roof Flat", "Roof Edge Straight", "Roof Edge Diagonal Corner", "Roof Edge L",
+                    "Roof Edge Square Corner", "Ground Decor"
+            };
+
+            locShapeListView.setCellFactory(param -> new ListCell<>() {
+                @Override
+                protected void updateItem(Integer item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                    } else {
+                        String shapeName = (item >= 0 && item < locShapeNames.length) ? locShapeNames[item] : "Unknown";
+                        setText(item + " - " + shapeName);
+                    }
+                }
+            });
+
+
+            locShapeListView.getSelectionModel().selectedItemProperty().addListener(
+                    (observable, oldValue, newValue) -> {
+                        if (newValue != null) {
+                            selectedLocShape = newValue;
+                            modelViewerSelector.updateModel(selectedLocShape);
+                        }
+                    });
+
+            inspectorTitle = new Label("--Locs--\nLeft Click to inspect\nShift + Click to update");
+            locPositionLabel = new Label("Position: ");
+            locDetailsLabel = new Label();
+            Button clearLocsButton = new Button("Clear Tile Locs");
+            clearLocsButton.setOnAction(e -> {
+                if (selectedTile != null) {
+                    Platform.runLater(() -> {
+                        currentMapData.removeLocData(selectedTile.level, selectedTile.x, selectedTile.z);
+                        drawNewMap(currentMapData);
+                        updateLocInspector();
+                    });
+                    System.out.println("Clear Locs button pressed for tile at X=" + selectedTile.x + ", Z=" + selectedTile.z + ", Level=" + selectedTile.level);
+                } else {
+                    System.out.println("No tile selected to clear Locs from.");
+                }
+            });
+
+            locInspector.getChildren().addAll(inspectorTitle, locPositionLabel, locDetailsLabel, clearLocsButton, newLocRotationLabel, locRotationBox, newLocShapeLabel, locShapeListView);
+
             tileInspector = new VBox();
-            tileInspector.setPrefWidth(200);
             tileInspector.setPadding(new Insets(10));
             tileInspector.setBorder(new Border(new BorderStroke(Color.BLACK, BorderStrokeStyle.SOLID, CornerRadii.EMPTY, BorderWidths.DEFAULT)));
+            tileInspector.setPrefWidth(250);
+
             Label inspectorTitle = new Label("--Tiles--\nLeft Click to inspect\nCtrl + Click to update");
             Label currentUnderlayLabel = new Label("New Underlay");
+            ListView<String> underlayListView = new ListView<>(underlayNames);
+            underlayListView.setPrefHeight(50);
+            underlayListView.setCellFactory(param -> new ListCell<>() {
+                private final Rectangle rect = new Rectangle(20, 20);
+
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                        setGraphic(null);
+                    } else {
+                        setText(item);
+                        Integer color = underlayMap.get(item);
+                        if (color != null) {
+                            rect.setFill(javafx.scene.paint.Color.rgb((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF));
+                            setGraphic(rect);
+                        } else {
+                            rect.setFill(javafx.scene.paint.Color.TRANSPARENT);
+                            setGraphic(null);
+                        }
+                    }
+                }
+            });
+
+            underlayListView.getSelectionModel().selectedItemProperty().addListener(
+                    (observable, oldValue, newValue) -> {
+                        if (newValue == null || newValue.equals("Original")) {
+                            selectedUnderlayID = 0;
+                        } else if (newValue.equals("Clear")) {
+                            selectedUnderlayID = -1;
+                        } else {
+                            selectedUnderlayID = findOverlayOrUnderlayIdByName(newValue);
+                        }
+                    }
+            );
+
             Label currentOverlayLabel = new Label("New Overlay");
             Label newHeightLabel = new Label("New Height");
+            Label newFlagLabel = new Label("New Flag");
             Label newShapeLabel = new Label("New Shape");
             Label newRotationLabel = new Label("New Rotation");
+            VBox rotationBox = new VBox(5);
+            ToggleGroup rotationGroup = new ToggleGroup();
 
-            ObservableList<Integer> rotationValues = FXCollections.observableArrayList(0, 90, 180, 270);
-            rotationComboBox = new ComboBox<>(rotationValues);
-            rotationComboBox.setValue(0);
+            for (Integer rotation : rotations) {
+                RadioButton rb = new RadioButton(rotation.toString());
+                rb.setToggleGroup(rotationGroup);
+                rb.setUserData(rotation);
+                rotationBox.getChildren().add(rb);
+            }
+
+            rotationGroup.selectedToggleProperty().addListener((observable, oldValue, newValue) -> {
+                if (newValue != null) {
+                    selectedRotation = (Integer) newValue.getUserData() / 90;
+                }
+            });
+
             newHeightTextField = new TextField();
 
             tilePositionLabel = new Label("Position: ");
@@ -584,15 +637,16 @@ public class OpenGLRenderer {
                     tileShapeLabel,
                     tileRotationLabel,
                     tileTextureLabel,
-                    currentUnderlayLabel, underlayComboBox,
-                    currentOverlayLabel, overlayComboBox,
+                    currentUnderlayLabel, underlayListView,
+                    currentOverlayLabel, overlayListView,
                     newHeightLabel, newHeightTextField,
-                    newRotationLabel, rotationComboBox,
-                    newShapeLabel, shapeComboBox
+                    newFlagLabel, flagListView,
+                    newRotationLabel, rotationBox,
+                    newShapeLabel, shapeListView
             );
 
             VBox controlsBox = new VBox(
-                    currentLevelLabel, levelComboBox,
+                    currentLevelLabel, levelRadioButtons,
                     displayLabel,
                     locCheckbox,
                     exportButton
@@ -603,13 +657,24 @@ public class OpenGLRenderer {
             BorderPane.setMargin(controlsBox, new Insets(10, 0, 10, 0));
             sideBar.setPadding(new Insets(10));
             sideBar.setBorder(new Border(new BorderStroke(Color.BLACK, BorderStrokeStyle.SOLID, CornerRadii.EMPTY, BorderWidths.DEFAULT)));
-            HBox mainContent = new HBox(tileInspector);
+            modelViewerSelector = new ModelViewerSelector(modelViewer);
+
+            SwingNode modelViewerSwingNode = new SwingNode();
+            Platform.runLater(() -> modelViewerSwingNode.setContent(modelViewer));
+            VBox.setVgrow(modelViewerSwingNode, Priority.ALWAYS);
+            VBox modelViewerBox = new VBox();
+            modelViewerBox.setPadding(new Insets(10));
+            modelViewerBox.setAlignment(Pos.CENTER);
+            modelViewerBox.setBorder(new Border(new BorderStroke(Color.BLACK, BorderStrokeStyle.SOLID, CornerRadii.EMPTY, BorderWidths.DEFAULT)));
+            modelViewerBox.setPrefWidth(250);
+            modelViewerBox.getChildren().addAll(modelViewerSelector, modelViewerSwingNode);
+            HBox mainContent = new HBox(tileInspector, locInspector, modelViewerBox);
 
             BorderPane rootPane = new BorderPane();
             rootPane.setLeft(sideBar);
             rootPane.setCenter(mainContent);
 
-            Scene scene = new Scene(rootPane, 400, 600);
+            Scene scene = new Scene(rootPane, 800, 600);
             fxPanel.setScene(scene);
 
             mapListView.getSelectionModel().selectedItemProperty().addListener(
@@ -622,13 +687,6 @@ public class OpenGLRenderer {
                         }
                     }
             );
-
-            levelComboBox.setOnAction(e -> {
-                currentLevel = levelComboBox.getValue();
-                if (currentMapData != null) {
-                    drawMapLevel();
-                }
-            });
 
             locCheckbox.setOnAction(e -> {
                 if (currentMapData != null) {
@@ -652,12 +710,31 @@ public class OpenGLRenderer {
                         selectedTile.z,
                         selectedTile.level));
 
-                tileOverlayLabel.setText("Overlay ID: " + (selectedTile.overlay != null ?
-                        selectedTile.overlay.id : "None"));
+                String overlayText = "Overlay ID: ";
+                if (selectedTile.overlay == null) {
+                    overlayText += "None";
+                } else {
+                    String overlayName = FileLoader.getFloMap().get(selectedTile.overlay.id);
+                    overlayText += selectedTile.overlay.id;
+                    if (overlayName != null) {
+                        overlayText += " - " + overlayName;
+                    }
+                }
+                tileOverlayLabel.setText(overlayText);
 
-                tileUnderlayLabel.setText("Underlay ID: " + (selectedTile.underlay != null ?
-                        selectedTile.underlay.id : "None"));
-                if (selectedTile.perlin) {
+                String underlayText = "Underlay ID: ";
+                if (selectedTile.underlay == null) {
+                    underlayText += "None";
+                } else {
+                    String underlayName = FileLoader.getFloMap().get(selectedTile.underlay.id);
+                    underlayText += selectedTile.underlay.id;
+                    if (underlayName != null) {
+                        underlayText += " - " + underlayName;
+                    }
+                }
+                tileUnderlayLabel.setText(underlayText);
+
+                if (selectedTile.perlin && selectedTile.level == 0) {
                     tileHeightLabel.setText("Height: Perlin Generated");
                 } else {
                     tileHeightLabel.setText(String.format("Height: %d",
@@ -684,9 +761,50 @@ public class OpenGLRenderer {
         });
     }
 
+    public void updateLocInspector() {
+        Platform.runLater(() -> {
+            if (selectedTile != null) {
+                locPositionLabel.setText(String.format("Position: X=%d, Z=%d Level=%d",
+                        selectedTile.x,
+                        selectedTile.z,
+                        selectedTile.level));
+                List<LocData> currentLocs = currentMapData.getLocData(selectedTile.level, selectedTile.x,selectedTile.z);
+
+                StringBuilder details = new StringBuilder();
+                details.append(String.format("--------------------%n"));
+                if (!currentLocs.isEmpty()) {
+                    for (int i = 0; i < currentLocs.size(); i++) {
+                        LocData loc = currentLocs.get(i);
+                        details.append(String.format("Name: %s%nID: %d%nShape: %d%nRotation: %s%n", FileLoader.getLocMap().get(loc.id), loc.id, loc.shape, loc.rotation * 90));
+                        if (i < currentLocs.size() - 1) {
+                            details.append(String.format("--------------------%n"));
+                        }
+                    }
+                } else {
+                    details.append("No LocData found for this tile.");
+                }
+                locDetailsLabel.setText(details.toString());
+            }
+        });
+    }
+
     public void run() {
         setupJavaFXUI();
         init();
+        Platform.runLater(() -> {
+            JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(fxPanel);
+            if (frame != null) {
+                Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+                int screenHeight = screenSize.height;
+                int frameX = 0;
+                int frameY = (screenHeight - frame.getHeight()) / 2;
+                frame.setLocation(frameX, frameY);
+                int windowHeight = 600;
+                int windowX = frameX + frame.getWidth();
+                int windowY = (screenHeight - windowHeight) / 2;
+                glfwSetWindowPos(window, windowX, windowY + 10);
+            }
+        });
         enableTextureRendering();
         setupVertexDataWithTriangles(triangleList);
         loop();
@@ -716,9 +834,11 @@ public class OpenGLRenderer {
             throw new RuntimeException("Failed to create the GLFW window");
 
         glfwSetKeyCallback(window, (window, key, scancode, action, mods) -> {
-            if (key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE)
+            if (key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE) {
                 glfwSetWindowShouldClose(window, true);
+            }
         });
+
 
         glfwSetCursorPosCallback(window, (window, xpos, ypos) -> {
 
@@ -760,20 +880,35 @@ public class OpenGLRenderer {
                 int mouseY = (int) ypos[0];
 
                 boolean ctrlPressed = (mods & GLFW_MOD_CONTROL) != 0;
-                Vector2i tileCoords = pickTile(mouseX, mouseY);
+                boolean shiftPressed = (mods & GLFW_MOD_SHIFT) != 0;
+                newTriangle clickedTriangle = pickTriangle(mouseX, mouseY);
 
-                if (tileCoords != null) {
-                    int tileX = tileCoords.x;
-                    int tileZ = tileCoords.y;
+                if (clickedTriangle != null) {
+                    int tileX = clickedTriangle.tileData.tileX;
+                    int tileZ = clickedTriangle.tileData.tileZ;
+
                     TileData tile;
                     tile = currentMapData.mapTiles[currentLevel][tileX][tileZ];
                     if(tile == null)
                         tile = new TileData(currentLevel, tileX, tileZ);
                     selectedTile = tile;
                 } else {
-                    selectedTile = null;
+                    Vector2i tileCoords = pickTile(mouseX, mouseY);
+
+                    if (tileCoords != null) {
+                        int tileX = tileCoords.x;
+                        int tileZ = tileCoords.y;
+                        TileData tile;
+                        tile = currentMapData.mapTiles[currentLevel][tileX][tileZ];
+                        if(tile == null)
+                            tile = new TileData(currentLevel, tileX, tileZ);
+                        selectedTile = tile;
+                    } else {
+                        selectedTile = null;
+                    }
                 }
                 updateTileInspector();
+                updateLocInspector();
 
                 if (ctrlPressed) {
                     if (selectedTile != null) {
@@ -796,16 +931,34 @@ public class OpenGLRenderer {
                         if (newHeightTextField.getText() != null && !newHeightTextField.getText().isEmpty()) {
                             try {
                                 double newHeight = Double.parseDouble(newHeightTextField.getText());
-                                newTile.height = (int) Math.floor(newHeight);
+                                if(newHeight == 0 && currentLevel == 0) {
+                                    int baseX = 0;
+                                    int baseY = 0;
+                                    Pattern fileNamePattern = Pattern.compile("m(\\d+)_(\\d+)\\.jm2");
+                                    Matcher fileNameMatcher = fileNamePattern.matcher(currentMapFileName);
+                                    if (fileNameMatcher.find()) {
+                                        baseX = Integer.parseInt(fileNameMatcher.group(1));
+                                        baseY = Integer.parseInt(fileNameMatcher.group(2));
+                                    }
+                                    int worldX = newTile.x + baseX + 932731;
+                                    int worldZ = newTile.z + baseY + 556238;
+                                    newTile.perlin = true;
+                                    newTile.height = World.perlinNoise(worldX, worldZ) * -8;
+                                } else {
+                                    newTile.height = (int) Math.floor(newHeight) * -8;
+                                }
                             } catch (NumberFormatException e) {
                                 System.err.println("Invalid height value: " + newHeightTextField.getText());
                             }
                         } else {
+                            if (selectedTile.perlin)
+                                newTile.perlin = true;
                             newTile.height = selectedTile.height;
                         }
-                        Integer selectedRotation = rotationComboBox.getValue();
                         if (newTile.overlay != null) {
-                            if (selectedRotation == null || selectedRotation == 0) {
+                            if (selectedRotation == -1) {
+                                newTile.rotation = selectedTile.rotation;
+                            } else if (selectedRotation == 0) {
                                 newTile.rotation = null;
                             } else if (selectedRotation == 90) {
                                 newTile.rotation = 1;
@@ -814,11 +967,45 @@ public class OpenGLRenderer {
                             } else if (selectedRotation == 270) {
                                 newTile.rotation = 3;
                             }
-                            newTile.shape = selectedShape;
+                            if (selectedShape == -1) {
+                                newTile.shape = selectedTile.shape;
+                            } else {
+                                newTile.shape = selectedShape;
+                            }
+                            if (selectedFlag == -1) {
+                                newTile.flag = selectedTile.flag;
+                            } else {
+                                newTile.flag = selectedFlag;
+                            }
                         }
                         currentMapData.mapTiles[selectedTile.level][selectedTile.x][selectedTile.z] = newTile;
                         drawNewMap(currentMapData);
                         selectedTile = newTile;
+                    }
+                }
+
+                if (shiftPressed) {
+                    if (selectedTile != null) {
+                        String selectedLocName = modelViewerSelector.getSelectedModel();
+                        if (selectedLocName != null) {
+                            int locId = -1;
+                            for (Integer id : FileLoader.getLocMap().keySet()) {
+                                if (FileLoader.getLocMap().get(id).equals(selectedLocName)) {
+                                    locId = id;
+                                    break;
+                                }
+                            }
+                            if(locId == -1) {
+                                System.out.println("Couldn't find Loc ID for Loc: " + selectedLocName);
+                                return;
+                            }
+                            LocData newLoc = new LocData(selectedTile.level, selectedTile.x, selectedTile.z, locId, selectedLocShape);
+                            newLoc.rotation = selectedLocRotation / 90;
+                            currentMapData.locations.add(newLoc);
+                            drawNewMap(currentMapData);
+                        } else {
+                            System.err.println("No model selected in Model Viewer.");
+                        }
                     }
                 }
             }
@@ -840,7 +1027,6 @@ public class OpenGLRenderer {
         GL.createCapabilities();
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LEQUAL);
-        openglInitialized = true;
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         camera = new Camera(new Vector3f(4400.0f, -7000.0f, 4000.0f));
         setupShaders();
@@ -944,7 +1130,6 @@ public class OpenGLRenderer {
 
         glDeleteVertexArrays(vao);
         glDeleteBuffers(vbo);
-        glDeleteTextures(textureIDs);
         glDeleteProgram(shaderProgram);
     }
 
@@ -982,133 +1167,11 @@ public class OpenGLRenderer {
         renderer.run();
     }
 
-    private void initializeTextures() {
-        if (!openglInitialized) {
-            System.err.println("ERROR: Attempting to load textures before OpenGL is initialized");
-            return;
-        }
-
-        if (texturesLoaded) {
-            System.out.println("Textures already loaded, skipping initialization");
-            return;
-        }
-
-
-        int numTextures = FileLoader.getTextureMap().size();
-        if (numTextures == 0) {
-            System.out.println("No textures to load");
-            texturesLoaded = true;
-            return;
-        }
-
-        textureIDs = new int[numTextures];
-
-        for (int i = 0; i < numTextures; i++) {
-            textureIDs[i] = TextureLoader.loadTexture(i);
-        }
-
-        texturesLoaded = true;
-    }
-
     private void setupShaders() {
-        String vertexShaderSource =
-                "#version 330 core\n" +
-                        "layout (location = 0) in vec3 aPos;\n" +
-                        "layout (location = 1) in vec3 aColor;\n" +
-                        "layout (location = 2) in vec2 aTexCoord;\n" +
-                        "layout (location = 3) in float aUseTexture;\n" +
-                        "layout (location = 4) in float aTextureID;\n" +
-                        "layout (location = 5) in float aIsHovered;\n" +
-                        "\n" +
-                        "out vec3 vertexColor;\n" +
-                        "out vec2 TexCoord;\n" +
-                        "out float useTexture;\n" +
-                        "out float textureID;\n" +
-                        "out float isHovered;\n" +
-                        "\n" +
-                        "uniform mat4 model;\n" +
-                        "uniform mat4 view;\n" +
-                        "uniform mat4 projection;\n" +
-                        "\n" +
-                        "void main() {\n" +
-                        "    gl_Position = projection * view * model * vec4(aPos, 1.0);\n" +
-                        "    vertexColor = aColor;\n" +
-                        "    TexCoord = aTexCoord;\n" +
-                        "    useTexture = aUseTexture;\n" +
-                        "    textureID = aTextureID;\n" +
-                        "    isHovered = aIsHovered;\n" +
-                        "}";
+        ShaderManager shaderManager = new ShaderManager();
+        shaderProgram = shaderManager.createProgram(); // No arguments
 
-        String fragmentShaderSource =
-                "#version 330 core\n" +
-                        "in vec3 vertexColor;\n" +
-                        "in vec2 TexCoord;\n" +
-                        "in float useTexture;\n" +
-                        "in float textureID;\n" +
-                        "in float isHovered;\n" +
-                        "out vec4 FragColor;\n" +
-                        "uniform sampler2D textures[50];\n" +
-                        "\n" +
-                        "void main() {\n" +
-                        "    vec3 baseColor = vertexColor;\n" +
-                        "\n" +
-                        "    if (isHovered > 0.5) { \n" +
-                        "        baseColor = min(baseColor + vec3(0.2), vec3(1.0));\n" +
-                        "    }\n" +
-                        "\n" +
-                        "    if (useTexture > 0.5) {\n" +
-                        "        int texID = int(round(textureID));\n" +
-                        "        if (texID >= 0 && texID < 50) {\n" +
-                        "            vec4 texColor = texture(textures[texID], TexCoord);\n" +
-                        "            if (texColor.a < 0.1) discard;\n" +
-                        "    if (isHovered > 0.5) { \n" +
-                        "        FragColor = texColor * vec4(baseColor, 1.0);\n" +
-                        "    } else {\n" +
-                        "            FragColor = texColor; \n" +
-                        "     }   } else {\n" +
-                        "            FragColor = vec4(1.0, 0.0, 1.0, 1.0);\n" +
-                        "        }\n" +
-                        "    } else {\n" +
-                        "        FragColor = vec4(baseColor, 1.0);\n" +
-                        "    }\n" +
-                        "}";
-
-        int vertexShader = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(vertexShader, vertexShaderSource);
-        glCompileShader(vertexShader);
-
-        int success = glGetShaderi(vertexShader, GL_COMPILE_STATUS);
-        if (success == GL_FALSE) {
-            String infoLog = glGetShaderInfoLog(vertexShader);
-            System.err.println("ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" + infoLog);
-        }
-
-        int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(fragmentShader, fragmentShaderSource);
-        glCompileShader(fragmentShader);
-
-        success = glGetShaderi(fragmentShader, GL_COMPILE_STATUS);
-        if (success == GL_FALSE) {
-            String infoLog = glGetShaderInfoLog(fragmentShader);
-            System.err.println("ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" + infoLog);
-        }
-
-        shaderProgram = glCreateProgram();
-        glAttachShader(shaderProgram, vertexShader);
-        glAttachShader(shaderProgram, fragmentShader);
-        glLinkProgram(shaderProgram);
-
-        success = glGetProgrami(shaderProgram, GL_LINK_STATUS);
-        if (success == GL_FALSE) {
-            String infoLog = glGetProgramInfoLog(shaderProgram);
-            System.err.println("ERROR::SHADER::PROGRAM::LINKING_FAILED\n" + infoLog);
-        }
-
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
-
-
-        initializeTextures();
+        textureManager.initializeTextures();
 
         glUseProgram(shaderProgram);
 
@@ -1118,7 +1181,7 @@ public class OpenGLRenderer {
         }
 
         int[] textureIndices = new int[50];
-        for(int i = 0; i < 50; i++) {
+        for (int i = 0; i < 50; i++) {
             textureIndices[i] = i;
         }
 
@@ -1128,118 +1191,14 @@ public class OpenGLRenderer {
     }
 
     private void setupVertexDataWithTriangles(List<newTriangle> triangles) {
-        if (triangles == null || triangles.isEmpty()) {
-            System.out.println("No triangles available");
-            return;
-        }
-
-        int totalTriangles = triangles.size();
-        int totalVertices = totalTriangles * 3;
-
-        int stride = 11;
-        float[] interleavedData = new float[totalVertices * stride];
-
-        float[][] defaultTexCoords = {
-                {0.0f, 0.0f},
-                {1.0f, 0.0f},
-                {0.0f, 1.0f}
-        };
-
-        int dataIndex = 0;
-
-        for (int triangleIndex = 0; triangleIndex < totalTriangles; triangleIndex++) {
-            newTriangle triangle = triangles.get(triangleIndex);
-            boolean isHoveredTriangle = hoveredTileTriangleIndices.contains(triangleIndex);
-
-            for (int vertexIndex = 0; vertexIndex < 3; vertexIndex++) {
-                interleavedData[dataIndex++] = triangle.vertices[vertexIndex * 3];
-                interleavedData[dataIndex++] = triangle.vertices[vertexIndex * 3 + 1];
-                interleavedData[dataIndex++] = triangle.vertices[vertexIndex * 3 + 2];
-
-                if (triangle.colors != null) {
-                    int color = Pix3D.colourTable[triangle.colors[vertexIndex]];
-                    interleavedData[dataIndex++] = ((color >> 16) & 0xFF) / 255.0f;
-                    interleavedData[dataIndex++] = ((color >> 8) & 0xFF) / 255.0f;
-                    interleavedData[dataIndex++] = (color & 0xFF) / 255.0f;
-                } else {
-                    interleavedData[dataIndex++] = 1.0f;
-                    interleavedData[dataIndex++] = 0.5f;
-                    interleavedData[dataIndex++] = 0.2f;
-                }
-
-                if (triangle.textureId > -1 && triangle.textureCoordinates != null) {
-                    interleavedData[dataIndex++] = triangle.textureCoordinates[vertexIndex * 2];
-                    interleavedData[dataIndex++] = triangle.textureCoordinates[vertexIndex * 2 + 1];
-                } else if (triangle.textureId > -1) {
-                    interleavedData[dataIndex++] = defaultTexCoords[vertexIndex][0];
-                    interleavedData[dataIndex++] = defaultTexCoords[vertexIndex][1];
-                } else {
-                    interleavedData[dataIndex++] = 0.0f;
-                    interleavedData[dataIndex++] = 0.0f;
-                }
-
-                interleavedData[dataIndex++] = (triangle.textureId > -1) ? 1.0f : 0.0f;
-
-                interleavedData[dataIndex++] = (triangle.textureId > -1) ? triangle.textureId : -1.0f;
-
-                interleavedData[dataIndex++] = isHoveredTriangle ? 1.0f : 0.0f;
-            }
-        }
-
-        if (vao != 0) {
-            glDeleteVertexArrays(vao);
-        }
-        if (vbo != 0) {
-            glDeleteBuffers(vbo);
-        }
-
-        vao = glGenVertexArrays();
-        glBindVertexArray(vao);
-
-        vbo = glGenBuffers();
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-
-        FloatBuffer buffer = BufferUtils.createFloatBuffer(interleavedData.length);
-        buffer.put(interleavedData).flip();
-        glBufferData(GL_ARRAY_BUFFER, buffer, GL_STATIC_DRAW);
-
-        int floatSize = Float.BYTES;
-        int strideBytes = stride * floatSize;
-
-        glVertexAttribPointer(0, 3, GL_FLOAT, false, strideBytes, 0);
-        glEnableVertexAttribArray(0);
-
-        glVertexAttribPointer(1, 3, GL_FLOAT, false, strideBytes, 3 * floatSize);
-        glEnableVertexAttribArray(1);
-
-        glVertexAttribPointer(2, 2, GL_FLOAT, false, strideBytes, 6 * floatSize);
-        glEnableVertexAttribArray(2);
-
-        glVertexAttribPointer(3, 1, GL_FLOAT, false, strideBytes, 8 * floatSize);
-        glEnableVertexAttribArray(3);
-
-        glVertexAttribPointer(4, 1, GL_FLOAT, false, strideBytes, 9 * floatSize);
-        glEnableVertexAttribArray(4);
-
-        glVertexAttribPointer(5, 1, GL_FLOAT, false, strideBytes, 10 * floatSize);
-        glEnableVertexAttribArray(5);
-
-        glBindVertexArray(0);
+        int[] vaoAndVbo = {vao, vbo};
+        vertexDataHandler.setupVertexDataWithTriangles(triangles, vaoAndVbo);
+        vao = vaoAndVbo[0];
+        vbo = vaoAndVbo[1];
     }
 
     private void processInput() {
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-            camera.processKeyboard(Camera.CameraMovement.FORWARD, deltaTime);
-        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-            camera.processKeyboard(Camera.CameraMovement.BACKWARD, deltaTime);
-        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-            camera.processKeyboard(Camera.CameraMovement.LEFT, deltaTime);
-        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-            camera.processKeyboard(Camera.CameraMovement.RIGHT, deltaTime);
-        if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
-            camera.processKeyboard(Camera.CameraMovement.ZOOM_IN, deltaTime);
-        if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
-            camera.processKeyboard(Camera.CameraMovement.ZOOM_OUT, deltaTime);
+        camera.processKeyboardInput(window, deltaTime); // Delegate to Camera class
     }
 
     public void setTriangles(List<newTriangle> triangles) {
@@ -1280,11 +1239,9 @@ public class OpenGLRenderer {
     }
 
     private Vector2i pickTile(int mouseX, int mouseY) {
-        // Convert mouse coordinates to normalized device coordinates
         float x = (2.0f * mouseX) / 800 - 1.0f;
         float y = 1.0f - (2.0f * mouseY) / 600;
 
-        // Create the same matrices as in rendering
         Matrix4f projection = new Matrix4f().perspective(
                 (float) Math.toRadians(camera.getZoom()),
                 800.0f / 600.0f,
@@ -1295,13 +1252,11 @@ public class OpenGLRenderer {
         Matrix4f view = camera.getViewMatrix();
         Matrix4f model = new Matrix4f().identity();
 
-        // Calculate the inverse of the combined MVP matrix
         Matrix4f inverse = new Matrix4f();
         projection.mul(view, inverse);
         inverse.mul(model);
         inverse.invert();
 
-        // Create ray from camera through mouse position
         Vector4f nearPointNDC = new Vector4f(x, y, -1.0f, 1.0f);
         Vector4f farPointNDC = new Vector4f(x, y, 1.0f, 1.0f);
 
@@ -1318,7 +1273,6 @@ public class OpenGLRenderer {
                 farPointWorld.z - nearPointWorld.z
         ).normalize();
 
-        // Intersect with y=0 plane to find tile
         float t = -rayOrigin.y / rayDirection.y;
 
         if (t >= 0) {

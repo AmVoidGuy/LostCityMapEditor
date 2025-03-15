@@ -3,7 +3,6 @@ module org.lostcitymapeditor {
     requires javafx.fxml;
 
     requires org.controlsfx.controls;
-    requires com.almasb.fxgl.all;
     requires java.desktop;
     requires javafx.swing;
     requires org.joml;

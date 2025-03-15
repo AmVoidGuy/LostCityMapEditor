@@ -1,8 +1,6 @@
 package org.lostcitymapeditor.OriginalCode;
 
 import org.lostcitymapeditor.Loaders.FileLoader;
-import org.lostcitymapeditor.OriginalCode.Model;
-import org.lostcitymapeditor.Transformers.FloFileTransformer;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,14 +30,7 @@ public class LocType {
     public static final int ROOFEDGE_DIAGONALCORNER = 19;
     public static final int ROOFEDGE_L = 20;
     public static final int ROOFEDGE_SQUARECORNER = 21;
-    public static boolean reset;
-    private static int count;
-    private static int[] offsets;
-    private static LocType[] cache;
-    private static int cachePos;
     public int index = -1;
-    private int[] models;
-    private int[] shapes;
     public String name;
     public String desc;
     private int[] recol_s;
@@ -56,7 +47,6 @@ public class LocType {
     public int wallwidth = 16;
     private byte ambient = 0;
     private byte contrast = 0;
-    public String[] op;
     private boolean animHasAlpha = false;
     public int mapfunction = -1;
     public int mapscene = -1;

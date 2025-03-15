@@ -24,7 +24,6 @@ import java.util.stream.Stream;
 public class MapDataLoader {
 
     public static final String MAPS_DIRECTORY = "Data/Maps/";
-    public static final String NEW_MAPS_DIRECTORY = "Data/NewMaps/";
 
     public static void exportMap(MapData currentMapData, String currentMapFileName) {
         if (currentMapData == null || currentMapFileName == null) {
@@ -34,18 +33,6 @@ public class MapDataLoader {
             alert.setContentText("No map loaded to export.");
             alert.showAndWait();
             return;
-        }
-
-        File newMapsDir = new File(NEW_MAPS_DIRECTORY);
-        if (!newMapsDir.exists()) {
-            if (!newMapsDir.mkdirs()) {
-                Alert alert = new Alert(Alert.AlertType.ERROR);
-                alert.setTitle("Export Error");
-                alert.setHeaderText(null);
-                alert.setContentText("Failed to create the directory: " + NEW_MAPS_DIRECTORY);
-                alert.showAndWait();
-                return;
-            }
         }
 
         FileChooser fileChooser = new FileChooser();

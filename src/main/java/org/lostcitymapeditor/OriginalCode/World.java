@@ -39,7 +39,7 @@ public class World {
             "_x", "_c", "_v"
     };
 
-    private static final Map<Integer, String> SHAPE_SUFFIX_MAP = Map.ofEntries(
+    public static final Map<Integer, String> SHAPE_SUFFIX_MAP = Map.ofEntries(
             Map.entry(0, "_1"),
             Map.entry(1, "_2"),
             Map.entry(2, "_3"),
@@ -575,14 +575,15 @@ public class World {
     public int getHeightmapY(int level, int tileX, int tileZ) {
         int realLevel = level;
         if (level < 3 && (this.levelTileFlags[1][tileX][tileZ] & 0x2) == 2) {
-            realLevel = level + 1;
+            //Bridge logic
+            //realLevel = level + 1;
         }
         int y00 = this.levelHeightmap[realLevel][tileX][tileZ] * (128 - tileX) + this.levelHeightmap[realLevel][tileX + 1][tileZ] * tileX >> 7;
         int y11 = this.levelHeightmap[realLevel][tileX][tileZ + 1] * (128 - tileX) + this.levelHeightmap[realLevel][tileX + 1][tileZ + 1] * tileX >> 7;
         return y00 * (128 - tileZ) + y11 * tileZ >> 7;
     }
 
-    private static Integer findModelWithSuffix(String target) {
+    public static Integer findModelWithSuffix(String target) {
         for (String suffix : SUFFIXES) {
             Integer modelId = FileLoader.getModelMap().get(target + suffix);
             if (modelId != null) {

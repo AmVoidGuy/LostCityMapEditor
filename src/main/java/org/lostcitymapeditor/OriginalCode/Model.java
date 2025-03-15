@@ -18,7 +18,7 @@ public class Model extends DoublyLinkable {
     public int[] faceIndicesA;
     public int[] faceIndicesB;
     public int[] faceIndicesC;
-    private int[] faceColorA;
+    public int[] faceColorA;
     private int[] faceColorB;
     private int[] faceColorC;
     public int[] faceInfos;
@@ -938,7 +938,7 @@ public class Model extends DoublyLinkable {
             textureId = this.faceColors[face];
         }
 
-        newTriangle.addTriangle(
+        newTriangle.addTriangle(true,
                 tileX, tileZ, currentLevel,
                 type, 0,
                 x0, y0, z0,
