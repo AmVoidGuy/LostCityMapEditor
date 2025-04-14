@@ -13,16 +13,15 @@ import java.nio.file.Paths;
 import java.util.stream.Stream;
 
 public class LocFileTransformer {
-    static String locDirectoryPath = "Data/Locs";
 
-    public static Map<String, Object> parseAllLocFiles() {
+    public static Map<String, Object> parseAllLocFiles(String directoryPath) {
         Map<String, Object> allLocsCombined = new HashMap<>();
 
         try {
-            Path dir = Paths.get(LocFileTransformer.class.getClassLoader().getResource(locDirectoryPath).toURI());
+            Path dir = Paths.get(directoryPath, "scripts");
 
             if (!Files.exists(dir) || !Files.isDirectory(dir)) {
-                System.err.println("Directory not found or is not a directory: " + locDirectoryPath);
+                System.err.println("Directory not found or is not a directory: " + directoryPath);
                 return allLocsCombined;
             }
 
@@ -44,14 +43,13 @@ public class LocFileTransformer {
                 System.err.println("Error processing directory: " + e.getMessage());
                 e.printStackTrace();
             }
-
         } catch (Exception e) {
-            System.err.println("Error getting resource URI: " + e.getMessage());
+            System.err.println("Error accessing directory: " + directoryPath);
+            e.printStackTrace();
         }
 
         return allLocsCombined;
     }
-
 
     private static Map<String, Object> parseLocFile(Path filePath) {
         Map<String, Object> locMap = new HashMap<>();

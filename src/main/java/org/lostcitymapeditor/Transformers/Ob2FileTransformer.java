@@ -4,9 +4,6 @@ import org.lostcitymapeditor.Loaders.FileLoader;
 import org.lostcitymapeditor.OriginalCode.Model;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.Files;
@@ -14,25 +11,18 @@ import java.util.*;
 import java.util.stream.Stream;
 
 public class Ob2FileTransformer {
-    static String ModelBasePath = "Data/Models/";
 
-    public static Map<Integer, Model> parseOb2Files() throws IOException {
+    public static Map<Integer, Model> parseOb2Files(String directoryPath) throws IOException {
         Map<String, Integer> modelMap = FileLoader.getModelMap();
         Map<Integer, Model> ob2Map = new HashMap<>();
 
-        URL resourceUrl = Ob2FileTransformer.class.getClassLoader().getResource(ModelBasePath);
-        if (resourceUrl == null) {
-            throw new IOException("Resource directory not found");
+        Path dirPath = Paths.get(directoryPath, "models");
+
+        if (!Files.exists(dirPath) || !Files.isDirectory(dirPath)) {
+            throw new IOException("Directory not found or is not a directory: " + directoryPath);
         }
 
-        Path resourcePath;
-        try {
-            resourcePath = Paths.get(resourceUrl.toURI());
-        } catch (URISyntaxException e) {
-            throw new IOException("Invalid resource URI", e);
-        }
-
-        try (Stream<Path> paths = Files.walk(resourcePath)) {
+        try (Stream<Path> paths = Files.walk(dirPath)) {
             paths.filter(path -> path.toString().endsWith(".ob2"))
                     .forEach(path -> {
                         String fileName = path.getFileName().toString();
@@ -40,28 +30,34 @@ public class Ob2FileTransformer {
 
                         if (modelMap.containsKey(fileNameNoExt)) {
                             try {
-                                ob2Map.put(modelMap.get(fileNameNoExt), convert(fileNameNoExt));
+                                ob2Map.put(modelMap.get(fileNameNoExt), convert(path.toString()));
                             } catch (Exception e) {
                                 System.err.println("Failed to convert file: " + fileNameNoExt);
                                 e.printStackTrace();
                             }
                         }
                     });
+        } catch (IOException e) {
+            throw new IOException("Error walking directory: " + directoryPath, e);
         }
+
         return ob2Map;
     }
 
-    public static Model convert(String modelName) throws IOException {
+    public static Model convert(String filePath) throws IOException {
         byte[] fileData = new byte[0];
-        try (InputStream in = Ob2FileTransformer.class.getClassLoader().getResourceAsStream(ModelBasePath + modelName + ".ob2")) {
-            if (in == null) {
-                System.err.println("Could not find resource: " + ModelBasePath + modelName + ".ob2");
+
+        try {
+            Path path = Paths.get(filePath);
+            if (!Files.exists(path)) {
+                System.err.println("Could not find file: " + filePath);
             } else {
-                fileData = in.readAllBytes();
+                fileData = Files.readAllBytes(path);
             }
         } catch (IOException e) {
-            System.err.println("Error loading image from resource: " + ModelBasePath + modelName + ".ob2" + " - " + e.getMessage());
+            System.err.println("Error loading file: " + filePath + " - " + e.getMessage());
             e.printStackTrace();
+            throw e;
         }
         OB2Packet packet = new OB2Packet(fileData);
         return parseOB2(packet);

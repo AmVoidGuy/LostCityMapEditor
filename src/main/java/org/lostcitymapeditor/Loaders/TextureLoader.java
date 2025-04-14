@@ -1,8 +1,8 @@
 package org.lostcitymapeditor.Loaders;
 
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import javax.imageio.ImageIO;
 import javafx.scene.image.Image;
 import org.lwjgl.BufferUtils;
@@ -17,17 +17,17 @@ import static org.lwjgl.opengl.GL30.glBindVertexArray;
 
 public class TextureLoader {
     public static Map<Integer, Integer> textureIdMap = new HashMap<>();
-    private static final String TEXTURES_DIRECTORY = "Data/Textures/";
 
-    public static int loadTexture(int id) {
+    public static int loadTexture(String baseDirectory, int id) {
         String textureName = "Not found";
         try {
             textureName = FileLoader.getTextureMap().get(id);
-            String fileName = TEXTURES_DIRECTORY + textureName + (textureName.endsWith(".png") ? "" : ".png");
+            String fullPath = baseDirectory + "/textures/" +
+                    File.separator + textureName + (textureName.endsWith(".png") ? "" : ".png");
 
-            BufferedImage image = loadImageFromResource(fileName);
+            BufferedImage image = loadImageFromFile(fullPath);
             if (image == null) {
-                System.err.println("Failed to load image: " + fileName);
+                System.err.println("Failed to load image: " + fullPath);
                 return -1;
             }
 
@@ -60,15 +60,18 @@ public class TextureLoader {
         }
     }
 
-    private static BufferedImage loadImageFromResource(String resourcePath) {
-        try (InputStream in = TextureLoader.class.getClassLoader().getResourceAsStream(resourcePath)) {
-            if (in == null) {
-                System.err.println("Could not find resource: " + resourcePath);
-                return null;
-            }
-            return ImageIO.read(in);
+    private static BufferedImage loadImageFromFile(String filePath) {
+        File imageFile = new File(filePath);
+
+        if (!imageFile.exists()) {
+            System.err.println("Could not find file: " + filePath);
+            return null;
+        }
+
+        try {
+            return ImageIO.read(imageFile);
         } catch (IOException e) {
-            System.err.println("Error loading image from resource: " + resourcePath + " - " + e.getMessage());
+            System.err.println("Error loading image from file: " + filePath + " - " + e.getMessage());
             e.printStackTrace();
             return null;
         }
@@ -106,15 +109,21 @@ public class TextureLoader {
         return buffer;
     }
 
-    public static Image loadTextureImage(String textureName) {
-        try (InputStream in = TextureLoader.class.getClassLoader().getResourceAsStream(TEXTURES_DIRECTORY + textureName + (textureName.endsWith(".png") ? "" : ".png"))) {
-            if (in == null) {
-                System.err.println("Could not find texture: " + textureName);
-                return null;
-            }
-            return new Image(in);
-        } catch (IOException e) {
-            System.err.println("Error loading texture: " + textureName + " - " + e.getMessage());
+    public static Image loadTextureImage(String basePath, String textureName) {
+        String fileName = textureName.endsWith(".png") ? textureName : textureName + ".png";
+
+        String filePath = basePath + "/textures/" + File.separator + fileName;
+        File textureFile = new File(filePath);
+
+        if (!textureFile.exists()) {
+            System.err.println("Could not find texture: " + filePath);
+            return null;
+        }
+
+        try {
+            return new Image(textureFile.toURI().toString());
+        } catch (Exception e) {
+            System.err.println("Error loading texture: " + filePath + " - " + e.getMessage());
             e.printStackTrace();
             return null;
         }

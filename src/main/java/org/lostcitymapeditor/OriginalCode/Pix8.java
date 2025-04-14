@@ -5,8 +5,8 @@ import org.lostcitymapeditor.Transformers.OptFileTransformer;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -22,19 +22,20 @@ public class Pix8 extends Pix2D {
     public int cropW;
     private int cropH;
 
-    public Pix8(String name) {
+    public Pix8(String name, String filePath) {
         Map<String, OptFileTransformer.TextureOptions> textureOptionsMap = FileLoader.getTextureOptsMap();
         OptFileTransformer.TextureOptions textureOptions = textureOptionsMap.get(name);
         BufferedImage image = null;
         try {
-            InputStream inputStream = getClass().getClassLoader().getResourceAsStream("Data/Textures/" + name + ".png");
-            if (inputStream == null) {
-                System.err.println("Error loading image: " + name + ".png (resource not found)");
+            File imageFile = new File(filePath + "/textures/" + name + ".png");
+
+            if (!imageFile.exists()) {
+                System.err.println("Error loading image: " + filePath + " (file not found)");
                 return;
             }
-            image = ImageIO.read(inputStream);
+            image = ImageIO.read(imageFile);
         } catch (IOException e) {
-            System.err.println("Error loading image: " + name + ".png");
+            System.err.println("Error loading image: " + filePath);
             e.printStackTrace();
             return;
         }

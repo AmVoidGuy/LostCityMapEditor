@@ -27,16 +27,16 @@ public class FileLoader {
     private static Map<String, OptFileTransformer.TextureOptions> textureOptsMap;
     private static Map<Integer, Model> modelOb2Map;
 
-    public static void loadFiles() throws IOException {
-        floMap = parseFloPack();
-        textureMap = parseTexturePack();
-        locMap = parseLocPack();
-        modelMap = parseModelPack();
-        underlayMap = FloFileTransformer.parseUnderlayFlo();
-        overlayMap = FloFileTransformer.parseOverlayFlo();
-        textureOptsMap = OptFileTransformer.loadTextureOptions();
-        allLocMap = LocFileTransformer.parseAllLocFiles();
-        modelOb2Map = Ob2FileTransformer.parseOb2Files();
+    public static void loadFiles(String path) throws IOException {
+        floMap = parseFloPack(path);
+        textureMap = parseTexturePack(path);
+        locMap = parseLocPack(path);
+        modelMap = parseModelPack(path);
+        underlayMap = FloFileTransformer.parseUnderlayFlo(path);
+        overlayMap = FloFileTransformer.parseOverlayFlo(path);
+        textureOptsMap = OptFileTransformer.loadTextureOptions(path);
+        allLocMap = LocFileTransformer.parseAllLocFiles(path);
+        modelOb2Map = Ob2FileTransformer.parseOb2Files(path);
         loadShapeImages(shapeImages);
     }
 

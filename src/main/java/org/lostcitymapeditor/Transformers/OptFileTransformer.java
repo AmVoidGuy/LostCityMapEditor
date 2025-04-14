@@ -1,61 +1,51 @@
 package org.lostcitymapeditor.Transformers;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.URI;
-import java.net.URL;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.io.*;
+import java.util.*;
 
 public class OptFileTransformer {
-    private static final String TEXTURES_OPTS_DIRECTORY = "Data/Textures/TextureOpts";
 
-    public static Map<String, TextureOptions> loadTextureOptions() {
+    public static Map<String, TextureOptions> loadTextureOptions(String directoryPath) {
         Map<String, TextureOptions> textureOptions = new HashMap<>();
+        File directory = new File(directoryPath + "/textures/meta/");
+
+        if (!directory.exists() || !directory.isDirectory()) {
+            System.err.println("Directory does not exist or is not a directory: " + directoryPath);
+            return textureOptions;
+        }
 
         try {
-            List<String> resourcePaths = getResourcesInDirectory(TEXTURES_OPTS_DIRECTORY);
-            if (resourcePaths == null) {
-                System.err.println("No resources found in directory: " + TEXTURES_OPTS_DIRECTORY);
+            File[] files = directory.listFiles();
+            if (files == null || files.length == 0) {
+                System.err.println("No files found in directory: " + directoryPath);
                 return textureOptions;
             }
 
-            resourcePaths.stream()
-                    .filter(resourcePath -> resourcePath.toLowerCase().endsWith(".opt"))
-                    .forEach(resourcePath -> {
-                        String name = getFileNameWithoutExtension(resourcePath);
+            Arrays.stream(files)
+                    .filter(file -> file.isFile() && file.getName().toLowerCase().endsWith(".opt"))
+                    .forEach(file -> {
+                        String name = getFileNameWithoutExtension(file.getName());
                         try {
-                            TextureOptions options = parseTextureOptions(resourcePath);
+                            TextureOptions options = parseTextureOptions(file.getAbsolutePath());
                             if (options != null) {
                                 textureOptions.put(name, options);
                             }
                         } catch (IOException e) {
-                            System.err.println("Error processing texture options file: " + resourcePath);
+                            System.err.println("Error processing texture options file: " + file.getAbsolutePath());
                             e.printStackTrace();
                         }
                     });
-        } catch (IOException e) {
-            System.err.println("Error accessing texture options directory: " + TEXTURES_OPTS_DIRECTORY);
+        } catch (Exception e) {
+            System.err.println("Error accessing texture options directory: " + directoryPath);
             e.printStackTrace();
         }
 
         return textureOptions;
     }
 
-    private static TextureOptions parseTextureOptions(String resourcePath) throws IOException {
-        try (InputStream inputStream = OptFileTransformer.class.getClassLoader().getResourceAsStream(resourcePath);
-             BufferedReader reader = new BufferedReader(new InputStreamReader(Objects.requireNonNull(inputStream, "Input stream cannot be null")))) {
+    private static TextureOptions parseTextureOptions(String filePath) throws IOException {
+        try (FileInputStream fileInputStream = new FileInputStream(filePath);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(fileInputStream))) {
 
             String dataLine = reader.readLine();
             if (dataLine != null) {
@@ -75,55 +65,17 @@ public class OptFileTransformer {
 
                         return new TextureOptions(cropX, cropY, width, height, pixelOrder);
                     } catch (NumberFormatException e) {
-                        System.err.println("Error parsing data in file: " + resourcePath + " - Invalid number format.");
-                        throw new IOException("Invalid number format in file: " + resourcePath, e);
+                        System.err.println("Error parsing data in file: " + filePath + " - Invalid number format.");
+                        throw new IOException("Invalid number format in file: " + filePath, e);
                     }
                 } else {
-                    System.err.println("Error in file: " + resourcePath + " - Incorrect number of values (expected 5, got " + parts.length + ")");
-                    throw new IOException("Incorrect number of values in file: " + resourcePath);
+                    System.err.println("Error in file: " + filePath + " - Incorrect number of values (expected 5, got " + parts.length + ")");
+                    throw new IOException("Incorrect number of values in file: " + filePath);
                 }
             } else {
-                System.err.println("Warning: Empty file: " + resourcePath);
+                System.err.println("Warning: Empty file: " + filePath);
                 return null;
             }
-        }
-    }
-
-    private static List<String> getResourcesInDirectory(String directory) throws IOException {
-        URL url = OptFileTransformer.class.getClassLoader().getResource(directory);
-        if (url == null) {
-            throw new IOException("Resource directory not found: " + directory);
-        }
-
-        URI uri = null;
-        try {
-            uri = url.toURI();
-        } catch (Exception e) {
-            throw new IOException("Failed to convert URL to URI: " + url, e);
-        }
-
-        Path myPath;
-        if (uri.getScheme().equals("jar")) {
-            FileSystem fileSystem = null;
-            try {
-                fileSystem = FileSystems.getFileSystem(uri);
-            } catch (Exception e) {
-                try {
-                    fileSystem = FileSystems.newFileSystem(uri, Collections.emptyMap());
-                } catch (Exception ex) {
-                    throw new IOException("Failed to create new filesystem for URI: " + uri, ex);
-                }
-            }
-            myPath = fileSystem.getPath(directory);
-
-        } else {
-            myPath = Path.of(uri);
-        }
-
-
-        try (Stream<Path> stream = Files.list(myPath)) {
-            return stream.map(path -> directory + "/" + path.getFileName().toString())
-                    .collect(Collectors.toList());
         }
     }
 

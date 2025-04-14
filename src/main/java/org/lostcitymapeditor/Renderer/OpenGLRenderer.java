@@ -115,7 +115,8 @@ public class OpenGLRenderer {
     private ModelViewerSelector modelViewerSelector;
     private int selectedRotation = -1;
     private int selectedLocRotation;
-    private int selectedLocShape = 0;
+    private int selectedLocShape = 10;
+    private static String serverDirectoryPath;
 
     private void updateHoveredTriangle(double mouseX, double mouseY) {
         hoveredTileTriangleIndices.clear();
@@ -294,7 +295,7 @@ public class OpenGLRenderer {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         Platform.runLater(() -> {
-            ObservableList<String> mapFiles = MapDataLoader.getJM2Files();
+            ObservableList<String> mapFiles = MapDataLoader.getJM2Files(serverDirectoryPath + "/maps/");
             ListView<String> mapListView = new ListView<>(mapFiles);
             mapListView.setPrefWidth(150);
 
@@ -333,7 +334,7 @@ public class OpenGLRenderer {
                                 }
                             } else if (overlayData.containsKey("texture")) {
                                 String textureName = (String) overlayData.get("texture");
-                                Image texture = TextureLoader.loadTextureImage(textureName);
+                                Image texture = TextureLoader.loadTextureImage(serverDirectoryPath, textureName);
                                 if (texture != null) {
                                     textureView.setImage(texture);
                                     textureView.setFitWidth(20);
@@ -451,7 +452,7 @@ public class OpenGLRenderer {
                 levelButton.setUserData(i);
                 levelRadioButtons.getChildren().add(levelButton);
 
-                int level = i; // Capture the loop variable
+                int level = i;
                 levelButton.setOnAction(e -> {
                     currentLevel = level;
                     if (currentMapData != null) {
@@ -504,7 +505,7 @@ public class OpenGLRenderer {
                     "Wall Straight", "Wall Diagonal Corner", "Wall L", "Wall Square Corner",
                     "Wall Decor Straight No Offset", "Wall Decor Straight Offset", "Wall Decor Diagonal Offset",
                     "Wall Decor Diagonal No Offset", "Wall Decor Diagonal Both", "Wall Diagonal",
-                    "Centrepiece Straight", "Centrepiece Diagonal", "Roof Straight",
+                    "(DEFAULT) Centrepiece Straight", "Centrepiece Diagonal", "Roof Straight",
                     "Roof Diagonal With Roof Edge", "Roof Diagonal", "Roof L Concave", "Roof L Convex",
                     "Roof Flat", "Roof Edge Straight", "Roof Edge Diagonal Corner", "Roof Edge L",
                     "Roof Edge Square Corner", "Ground Decor"
@@ -682,7 +683,7 @@ public class OpenGLRenderer {
                         if (newValue != null) {
                             currentMapFileName = newValue;
                             updateCurrentMapLabel(currentMapFileName);
-                            currentMapData = MapDataTransformer.parseJM2File(MapDataLoader.MAPS_DIRECTORY + currentMapFileName);
+                            currentMapData = MapDataTransformer.parseJM2File(serverDirectoryPath + "/maps/" + currentMapFileName);
                             drawNewMap(currentMapData);
                         }
                     }
@@ -697,7 +698,7 @@ public class OpenGLRenderer {
             });
 
             exportButton.setOnAction(e -> {
-                MapDataLoader.exportMap(currentMapData, currentMapFileName);
+                MapDataLoader.exportMap(currentMapData, currentMapFileName, serverDirectoryPath);
             });
         });
     }
@@ -1134,14 +1135,19 @@ public class OpenGLRenderer {
     }
 
     public static void startRender() throws IOException {
-        FileLoader.loadFiles();
+        serverDirectoryPath = chooseServerDirectory();
+        if (serverDirectoryPath == null) {
+            System.err.println("No server directory selected. Exiting.");
+            return;
+        }
+        FileLoader.loadFiles(serverDirectoryPath);
         underlayMap = FileLoader.getUnderlayMap();
         overlayMap = FileLoader.getOverlayMap();
         shapeImages = FileLoader.getShapeImages();
 
-        currentMapData = MapDataTransformer.parseJM2File(MapDataLoader.MAPS_DIRECTORY + currentMapFileName);
+        currentMapData = MapDataTransformer.parseJM2File(serverDirectoryPath + "/maps/" + currentMapFileName);
 
-        Pix3D.loadTextures();
+        Pix3D.loadTextures(serverDirectoryPath);
         Pix3D.setBrightness(0.8);
         Pix3D.initPool(20);
         Pix3D.init3D(800, 600);
@@ -1169,9 +1175,9 @@ public class OpenGLRenderer {
 
     private void setupShaders() {
         ShaderManager shaderManager = new ShaderManager();
-        shaderProgram = shaderManager.createProgram(); // No arguments
+        shaderProgram = shaderManager.createProgram();
 
-        textureManager.initializeTextures();
+        textureManager.initializeTextures(serverDirectoryPath);
 
         glUseProgram(shaderProgram);
 
@@ -1198,7 +1204,7 @@ public class OpenGLRenderer {
     }
 
     private void processInput() {
-        camera.processKeyboardInput(window, deltaTime); // Delegate to Camera class
+        camera.processKeyboardInput(window, deltaTime);
     }
 
     public void setTriangles(List<newTriangle> triangles) {
@@ -1286,6 +1292,25 @@ public class OpenGLRenderer {
                 return null;
 
             return new Vector2i(tileX, tileZ);
+        } else {
+            return null;
+        }
+    }
+
+    public static String chooseServerDirectory() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Select Server Data Source Directory");
+        fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+
+        JOptionPane.showMessageDialog(null,
+                "Please select the root directory containing your server's 'models', 'sprites', 'fonts', etc. folders (e.g., '../Server/data/src/').",
+                "Directory Selection",
+                JOptionPane.INFORMATION_MESSAGE);
+
+        int result = fileChooser.showDialog(null, "Select Directory");
+
+        if (result == JFileChooser.APPROVE_OPTION) {
+            return fileChooser.getSelectedFile().getAbsolutePath();
         } else {
             return null;
         }

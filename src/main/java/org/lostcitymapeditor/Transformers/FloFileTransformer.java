@@ -1,7 +1,7 @@
 package org.lostcitymapeditor.Transformers;
 
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
@@ -10,23 +10,23 @@ import java.util.regex.Pattern;
 
 public class FloFileTransformer {
 
-    static String underlayFloPath = "Data/FloFiles/underlay.flo";
-    static String overlayFloPath = "Data/FloFiles/overlay.flo";
+    static String underlayFloPath = "/scripts/floors/underlay.flo";
+    static String overlayFloPath = "/scripts/floors/overlay.flo";
 
-    public static Map<String, Integer> parseUnderlayFlo() {
-        return parseUnderlayFloFile(underlayFloPath);
+    public static Map<String, Integer> parseUnderlayFlo(String path) {
+        return parseUnderlayFloFile(path + underlayFloPath);
     }
 
-    public static Map<String, Object> parseOverlayFlo() {
-        return parseOverlayFloFile(overlayFloPath);
+    public static Map<String, Object> parseOverlayFlo(String path) {
+        return parseOverlayFloFile(path + overlayFloPath);
     }
 
     private static Map<String, Integer> parseUnderlayFloFile(String floPath) {
         Map<String, Integer> underlayMap = new HashMap<>();
         String currentName = null;
 
-        try (InputStream inputStream = FloFileTransformer.class.getClassLoader().getResourceAsStream(floPath);
-             Scanner scanner = new Scanner(inputStream)) {
+        try (FileInputStream fileInputStream = new FileInputStream(floPath);
+             Scanner scanner = new Scanner(fileInputStream)) {
 
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine().trim();
@@ -65,8 +65,8 @@ public class FloFileTransformer {
         String texture = null;
         boolean occlude = true;
 
-        try (InputStream inputStream = FloFileTransformer.class.getClassLoader().getResourceAsStream(floPath);
-             Scanner scanner = new Scanner(inputStream)) {
+        try (FileInputStream fileInputStream = new FileInputStream(floPath);
+             Scanner scanner = new Scanner(fileInputStream)) {
 
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine().trim();

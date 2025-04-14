@@ -8,7 +8,7 @@ public class TextureManager {
     private int[] textureIDs;
     private boolean texturesLoaded = false;
 
-    public void initializeTextures() {
+    public void initializeTextures(String path) {
         if (texturesLoaded) {
             System.out.println("Textures already loaded, skipping initialization");
             return;
@@ -24,7 +24,7 @@ public class TextureManager {
         textureIDs = new int[numTextures];
 
         for (int i = 0; i < numTextures; i++) {
-            textureIDs[i] = TextureLoader.loadTexture(i);
+            textureIDs[i] = TextureLoader.loadTexture(path, i);
         }
 
         texturesLoaded = true;

@@ -77,13 +77,13 @@ public class Pix3D extends Pix2D {
         }
     }
 
-    public static void loadTextures() {
+    public static void loadTextures(String path) {
         textureCount = 0;
         Map<Integer, String> textureMap = FileLoader.getTextureMap();
         for ( int id = 0; id < textureMap.size(); id++) {
             try {
                 String textureName = textureMap.get(id);
-                textures[id] = new Pix8(String.valueOf(textureName));
+                textures[id] = new Pix8(String.valueOf(textureName), path);
                     textures[id].crop();
                 textureCount++;
             } catch ( Exception ex) {

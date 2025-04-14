@@ -1,38 +1,38 @@
 package org.lostcitymapeditor.Transformers;
 
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
 
 public class PackFileTransformer {
-    static String floPackPath = "Data/PackFiles/flo.pack";
-    static String texturePackPath = "Data/PackFiles/texture.pack";
-    static String locPackPath = "Data/PackFiles/loc.pack";
-    static String modelPackPath = "Data/PackFiles/model.pack";
+    static String floPackPath = "/pack/flo.pack";
+    static String texturePackPath = "/pack/texture.pack";
+    static String locPackPath = "/pack/loc.pack";
+    static String modelPackPath = "/pack/model.pack";
 
-    public static Map<Integer, String> parseFloPack() {
-        return parsePackFile(floPackPath);
+    public static Map<Integer, String> parseFloPack(String path) {
+        return parsePackFile(path + floPackPath);
     }
 
-    public static Map<Integer, String> parseTexturePack() {
-        return parsePackFile(texturePackPath);
+    public static Map<Integer, String> parseTexturePack(String path) {
+        return parsePackFile(path + texturePackPath);
     }
 
-    public static Map<Integer, String> parseLocPack() {
-        return parsePackFile(locPackPath);
+    public static Map<Integer, String> parseLocPack(String path) {
+        return parsePackFile(path + locPackPath);
     }
 
-    public static Map<String, Integer> parseModelPack() {
-        return parseModelPackFile(modelPackPath);
+    public static Map<String, Integer> parseModelPack(String path) {
+        return parseModelPackFile(path + modelPackPath);
     }
 
     private static Map<String, Integer> parseModelPackFile(String packFilePath) {
         Map<String, Integer> packMap = new HashMap<>();
 
-        try (InputStream inputStream = PackFileTransformer.class.getClassLoader().getResourceAsStream(packFilePath);
-             Scanner scanner = new Scanner(inputStream)) {
+        try (FileInputStream fileInputStream = new FileInputStream(packFilePath);
+             Scanner scanner = new Scanner(fileInputStream)) {
 
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine().trim();
@@ -61,8 +61,8 @@ public class PackFileTransformer {
     private static Map<Integer, String> parsePackFile(String packFilePath) {
         Map<Integer, String> packMap = new HashMap<>();
 
-        try (InputStream inputStream = PackFileTransformer.class.getClassLoader().getResourceAsStream(packFilePath);
-             Scanner scanner = new Scanner(inputStream)) {
+        try (FileInputStream fileInputStream = new FileInputStream(packFilePath);
+             Scanner scanner = new Scanner(fileInputStream)) {
 
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine().trim();
@@ -73,7 +73,7 @@ public class PackFileTransformer {
                     try {
                         int id = Integer.parseInt(parts[0].trim());
                         String name = parts[1].trim();
-                        if (packFilePath.equals(floPackPath)) {
+                        if (packFilePath.contains(floPackPath)) {
                             packMap.put(id, "[" + name + "]");
                         } else {
                             packMap.put(id, name);

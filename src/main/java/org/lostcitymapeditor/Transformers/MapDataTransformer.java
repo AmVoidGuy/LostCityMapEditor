@@ -5,7 +5,6 @@ import org.lostcitymapeditor.OriginalCode.World;
 import org.lostcitymapeditor.Util.DataHelpers;
 
 import java.io.*;
-import java.util.Objects;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -23,8 +22,8 @@ public class MapDataTransformer {
             baseX = Integer.parseInt(fileNameMatcher.group(1));
             baseY = Integer.parseInt(fileNameMatcher.group(2));
         }
-        try (InputStream inputStream = MapDataTransformer.class.getClassLoader().getResourceAsStream(filePath);
-             Scanner scanner = new Scanner(Objects.requireNonNull(inputStream, "Could not find resource: " + filePath))) {
+        try (FileInputStream fileInputStream = new FileInputStream(filePath);
+             Scanner scanner = new Scanner(fileInputStream)) {
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine().trim();
 
