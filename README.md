@@ -13,11 +13,17 @@ Right click to rotate.
 Left click on tile to see information.
 
 Control + left click tile to update the tile.
+
 L + left click to place selected loc.
+
 O + left click to place selected object.
-N + left click to place selected npc. 
+
+N + left click to place selected npc.
+
 Ctrl + C to copy selected tile.
-Ctrl + V to paste copied tile on current selected tile. 
+
+Ctrl + V to paste copied tile on current selected tile.
+
 Ctrl + Z to undo
 
 For height values, 0 is perlin noise generated. 1 is floor height. 
