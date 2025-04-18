@@ -99,8 +99,8 @@ public class MapDataTransformer {
                                             }
                                         }
                                         if(tileData.height == 0 && tileData.level == 0) {
-                                            int worldX = baseX + x + 932731;
-                                            int worldZ = baseY + z + 556238;
+                                            int worldX = baseX * 64 + x + 932731;
+                                            int worldZ = baseY * 64 + z + 556238;
                                             tileData.perlin = true;
                                             tileData.height = World.perlinNoise(worldX, worldZ) * -8;
                                         } else if(tileData.height == 0) {
@@ -150,18 +150,18 @@ public class MapDataTransformer {
                                         break;
                                     case "OBJ":
                                         String[] objParts = dataString.split(" ");
-                                        if (objParts.length != 2) {
+                                        if (objParts.length > 2) {
                                             System.out.println("Skipping invalid OBJ line: " + line);
                                             continue;
                                         }
                                         Integer objId = DataHelpers.parseInteger(objParts[0]);
-                                        Integer count = DataHelpers.parseInteger(objParts[1]);
-                                        if (objId == null || count == null) {
-                                            System.out.println("Skipping invalid OBJ line (id or count missing): " + line);
+                                        if (objId == null) {
+                                            System.out.println("Skipping invalid OBJ line (id missing): " + line);
                                             continue;
                                         }
-                                        ObjData objData = new ObjData(objId, count);
-                                        currentMapData.objects[level][x][z] = objData;
+                                        Integer objCount = DataHelpers.parseInteger(objParts[1]);
+                                        ObjData objData = new ObjData(level, x, z, objId, objCount);
+                                        currentMapData.objects.add(objData);
                                         break;
                                 }
                             } catch (NumberFormatException e) {
@@ -239,17 +239,8 @@ public class MapDataTransformer {
 
             if (mapData.objects != null) {
                 writer.write("\n==== OBJ ====\n");
-                for (int level = 0; level < 4; level++) {
-                    if (mapData.objects[level] != null) {
-                        for (int x = 0; x < 64; x++) {
-                            if (mapData.objects[level][x] != null) {
-                                for (int z = 0; z < 64; z++) {
-                                    if(mapData.objects[level][x][z] != null)
-                                        writer.write(String.format("%d %d %d: %d %d\n", level, x, z, mapData.objects[level][x][z].id, mapData.objects[level][x][z].count));
-                                }
-                            }
-                        }
-                    }
+                for (ObjData obj : mapData.objects) {
+                    writer.write(String.format("%d %d %d: %d %d\n", obj.level, obj.x, obj.z, obj.id, obj.count));
                 }
             }
 

@@ -525,6 +525,164 @@ public class Model extends DoublyLinkable {
         this.faceTextures = src.faceTextures;
     }
 
+    public Model createCopy() {
+        Model copy = new Model();
+
+        copy.name = this.name;
+        copy.vertexCount = this.vertexCount;
+        copy.faceCount = this.faceCount;
+        copy.texturedFaceCount = this.texturedFaceCount;
+        copy.baseX = this.baseX;
+        copy.baseY = this.baseY;
+        copy.baseZ = this.baseZ;
+        copy.modelPriority = this.modelPriority;
+        copy.radius = this.radius;
+        copy.maxY = this.maxY;
+        copy.minY = this.minY;
+        copy.maxDepth = this.maxDepth;
+        copy.minDepth = this.minDepth;
+        copy.minX = this.minX;
+        copy.maxX = this.maxX;
+        copy.maxZ = this.maxZ;
+        copy.minZ = this.minZ;
+        copy.objRaise = this.objRaise;
+
+        if (this.verticesX != null) {
+            copy.verticesX = new int[this.vertexCount];
+            System.arraycopy(this.verticesX, 0, copy.verticesX, 0, this.vertexCount);
+        }
+
+        if (this.verticesY != null) {
+            copy.verticesY = new int[this.vertexCount];
+            System.arraycopy(this.verticesY, 0, copy.verticesY, 0, this.vertexCount);
+        }
+
+        if (this.verticesZ != null) {
+            copy.verticesZ = new int[this.vertexCount];
+            System.arraycopy(this.verticesZ, 0, copy.verticesZ, 0, this.vertexCount);
+        }
+
+        if (this.faceIndicesA != null) {
+            copy.faceIndicesA = new int[this.faceCount];
+            System.arraycopy(this.faceIndicesA, 0, copy.faceIndicesA, 0, this.faceCount);
+        }
+
+        if (this.faceIndicesB != null) {
+            copy.faceIndicesB = new int[this.faceCount];
+            System.arraycopy(this.faceIndicesB, 0, copy.faceIndicesB, 0, this.faceCount);
+        }
+
+        if (this.faceIndicesC != null) {
+            copy.faceIndicesC = new int[this.faceCount];
+            System.arraycopy(this.faceIndicesC, 0, copy.faceIndicesC, 0, this.faceCount);
+        }
+
+        if (this.faceColorA != null) {
+            copy.faceColorA = new int[this.faceCount];
+            System.arraycopy(this.faceColorA, 0, copy.faceColorA, 0, this.faceCount);
+        }
+
+        if (this.faceColorB != null) {
+            copy.faceColorB = new int[this.faceCount];
+            System.arraycopy(this.faceColorB, 0, copy.faceColorB, 0, this.faceCount);
+        }
+
+        if (this.faceColorC != null) {
+            copy.faceColorC = new int[this.faceCount];
+            System.arraycopy(this.faceColorC, 0, copy.faceColorC, 0, this.faceCount);
+        }
+
+        if (this.faceInfos != null) {
+            copy.faceInfos = new int[this.faceCount];
+            System.arraycopy(this.faceInfos, 0, copy.faceInfos, 0, this.faceCount);
+        }
+
+        if (this.facePriorities != null) {
+            copy.facePriorities = new int[this.faceCount];
+            System.arraycopy(this.facePriorities, 0, copy.facePriorities, 0, this.faceCount);
+        }
+
+        if (this.faceAlphas != null) {
+            copy.faceAlphas = new int[this.faceCount];
+            System.arraycopy(this.faceAlphas, 0, copy.faceAlphas, 0, this.faceCount);
+        }
+
+        if (this.faceColors != null) {
+            copy.faceColors = new int[this.faceCount];
+            System.arraycopy(this.faceColors, 0, copy.faceColors, 0, this.faceCount);
+        }
+
+        if (this.faceTextures != null) {
+            copy.faceTextures = new int[this.faceCount];
+            System.arraycopy(this.faceTextures, 0, copy.faceTextures, 0, this.faceCount);
+        }
+
+        if (this.textureCoords != null) {
+            copy.textureCoords = new int[this.faceCount];
+            System.arraycopy(this.textureCoords, 0, copy.textureCoords, 0, this.faceCount);
+        }
+
+        if (this.texturePCoordinate != null) {
+            copy.texturePCoordinate = new int[this.texturedFaceCount];
+            System.arraycopy(this.texturePCoordinate, 0, copy.texturePCoordinate, 0, this.texturedFaceCount);
+        }
+
+        if (this.textureMCoordinate != null) {
+            copy.textureMCoordinate = new int[this.texturedFaceCount];
+            System.arraycopy(this.textureMCoordinate, 0, copy.textureMCoordinate, 0, this.texturedFaceCount);
+        }
+
+        if (this.textureNCoordinate != null) {
+            copy.textureNCoordinate = new int[this.texturedFaceCount];
+            System.arraycopy(this.textureNCoordinate, 0, copy.textureNCoordinate, 0, this.texturedFaceCount);
+        }
+
+        if (this.vertexLabels != null) {
+            copy.vertexLabels = new int[this.vertexCount];
+            System.arraycopy(this.vertexLabels, 0, copy.vertexLabels, 0, this.vertexCount);
+        }
+
+        if (this.faceLabels != null) {
+            copy.faceLabels = new int[this.faceCount];
+            System.arraycopy(this.faceLabels, 0, copy.faceLabels, 0, this.faceCount);
+        }
+
+        if (this.vertexNormal != null) {
+            copy.vertexNormal = new VertexNormal[this.vertexCount];
+            for (int i = 0; i < this.vertexCount; i++) {
+                if (this.vertexNormal[i] != null) {
+                    copy.vertexNormal[i] = new VertexNormal();
+                    copy.vertexNormal[i].x = this.vertexNormal[i].x;
+                    copy.vertexNormal[i].y = this.vertexNormal[i].y;
+                    copy.vertexNormal[i].z = this.vertexNormal[i].z;
+                    copy.vertexNormal[i].w = this.vertexNormal[i].w;
+                }
+            }
+        }
+
+        if (this.labelVertices != null) {
+            copy.labelVertices = new int[this.labelVertices.length][];
+            for (int i = 0; i < this.labelVertices.length; i++) {
+                if (this.labelVertices[i] != null) {
+                    copy.labelVertices[i] = new int[this.labelVertices[i].length];
+                    System.arraycopy(this.labelVertices[i], 0, copy.labelVertices[i], 0, this.labelVertices[i].length);
+                }
+            }
+        }
+
+        if (this.labelFaces != null) {
+            copy.labelFaces = new int[this.labelFaces.length][];
+            for (int i = 0; i < this.labelFaces.length; i++) {
+                if (this.labelFaces[i] != null) {
+                    copy.labelFaces[i] = new int[this.labelFaces[i].length];
+                    System.arraycopy(this.labelFaces[i], 0, copy.labelFaces[i], 0, this.labelFaces[i].length);
+                }
+            }
+        }
+
+        return copy;
+    }
+
     public static int mulColorLightness( int hsl,  int scalar,  int faceInfo) {
         if ((faceInfo & 0x2) == 2) {
             if (scalar < 0) {

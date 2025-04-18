@@ -1,13 +1,15 @@
 package org.lostcitymapeditor.OriginalCode;
 
-import org.lostcitymapeditor.DataObjects.LocData;
-import org.lostcitymapeditor.DataObjects.MapData;
-import org.lostcitymapeditor.DataObjects.TileData;
+import org.lostcitymapeditor.DataObjects.*;
 import org.lostcitymapeditor.Loaders.FileLoader;
+import org.lostcitymapeditor.Util.ColorConversion;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import static org.lostcitymapeditor.Renderer.OpenGLRenderer.currentLevel;
+import static org.lostcitymapeditor.Renderer.OpenGLRenderer.world;
 
 public class World {
     private final int maxTileX;
@@ -117,6 +119,120 @@ public class World {
                 this.addLoc(loc.level, loc.x, loc.z, scene, locs, loc.id, loc.shape, loc.rotation);
             }
         }
+    }
+
+    public void loadNpcs(World3D scene, MapData mapData) {
+        if (mapData.npcs != null) {
+            for(NpcData npc: mapData.npcs) {
+                this.addNpc(npc.level, npc.x, npc.z, scene, npc.id);
+            }
+        }
+    }
+
+    public void loadObjs(World3D scene, MapData mapData) {
+        if (mapData.objects != null) {
+            for(ObjData obj: mapData.objects) {
+                this.addObj(obj.level, obj.x, obj.z, scene, obj.id);
+            }
+        }
+    }
+
+    private void addObj(int level, int x, int z, World3D scene, int objId) {
+        int height = this.levelHeightmap[level][x][z];
+        String objName = FileLoader.getObjMap().get(objId);
+        String modelName = "";
+        if(objName.startsWith("cert_")) {
+            modelName = "model_2429_obj";
+        }
+        Map<String, Object> objData = (Map<String, Object>) FileLoader.getAllObjMap().get(objName);
+        if(objData != null) {
+            modelName = (String) objData.getOrDefault("model", null);
+        }
+        Integer modelId = FileLoader.getModelMap().get(modelName);
+        Model model = new Model(modelId).createCopy();
+        if(objData != null) {
+            Map<Integer, int[]> recols = (Map<Integer, int[]>) objData.get("recols");
+            int[] recol_s = null;
+            int[] recol_d = null;
+            if (recols != null) {
+                int maxIndex = 0;
+                for (Integer index : recols.keySet()) {
+                    maxIndex = Math.max(maxIndex, index);
+                }
+                recol_s = new int[maxIndex + 1];
+                recol_d = new int[maxIndex + 1];
+                for (Map.Entry<Integer, int[]> entry : recols.entrySet()) {
+                    int index = entry.getKey();
+                    int[] values = entry.getValue();
+                    recol_s[index] = values[0];
+                    recol_d[index] = values[1];
+                }
+            }
+            if (recol_s != null) {
+                for (int j = 1; j < recol_s.length; j++) {
+                    int src = ColorConversion.rgb15toHsl16(recol_s[j]);
+                    int des = ColorConversion.rgb15toHsl16(recol_d[j]);
+                    model.recolor(src, des);
+                }
+            }
+        }
+        model.calculateNormals(64, 768, -50, -10, -50, true);
+        model.baseX = x;
+        model.baseZ = z;
+        scene.addObj(level, x, z, height, model);
+    }
+
+    private void addNpc(int level, int x, int z, World3D scene, int npcId) {
+        int height = this.levelHeightmap[level][x][z];
+        String npcName = FileLoader.getNpcMap().get(npcId);
+        Map<String, Object> npcData = (Map<String, Object>) FileLoader.getAllNpcMap().get(npcName);
+        String[] models = (String[]) npcData.getOrDefault("models", null);
+        Model[] models1 = new Model[models.length];
+        int resizeh = (int) npcData.getOrDefault("resizeh", 128);
+        int resizev = (int) npcData.getOrDefault("resizev", 128);
+        int size = (int) npcData.getOrDefault("size", 1);
+        for (int i = 0; i < models.length; i++) {
+            Integer modelId = FileLoader.getModelMap().get(models[i]);
+            Model currentModel = new Model(modelId).createCopy();
+            models1[i] = currentModel;
+        }
+        Model model;
+        if (models1.length > 1) {
+            model = new Model(models1, models1.length);
+        } else {
+            model = models1[0];
+        }
+        Map<Integer, int[]> recols = (Map<Integer, int[]>) npcData.get("recols");
+        int[] recol_s = null;
+        int[] recol_d = null;
+        if (recols != null) {
+            int maxIndex = 0;
+            for (Integer index : recols.keySet()) {
+                maxIndex = Math.max(maxIndex, index);
+            }
+            recol_s = new int[maxIndex + 1];
+            recol_d = new int[maxIndex + 1];
+            for (Map.Entry<Integer, int[]> entry : recols.entrySet()) {
+                int index = entry.getKey();
+                int[] values = entry.getValue();
+                recol_s[index] = values[0];
+                recol_d[index] = values[1];
+            }
+        }
+        if (recol_s != null) {
+            for (int j = 1; j < recol_s.length; j++) {
+                int src = ColorConversion.rgb15toHsl16(recol_s[j]);
+                int des = ColorConversion.rgb15toHsl16(recol_d[j]);
+                model.recolor(src, des);
+            }
+        }
+        model.calculateNormals(64, 850, -30, -50, -30, true);
+        if (resizeh != 128 || resizev != 128) {
+            model.scale(resizeh, resizev, resizeh);
+        }
+        model.baseX = x;
+        model.baseZ = z;
+        scene.addNpc(level, x, z, height, model, size);
     }
 
     private void addLoc(int level, int x, int z, World3D scene, LinkList locs, int locId, int shape, int rotation) {
@@ -327,10 +443,10 @@ public class World {
     }
 
     private static int noise(int x, int y) {
-        long n = (long)x + (long)y * 57L;
-        long n1 = (n << 13) ^ n;
-        long result = (n1 * (n1 * n1 * 15731L + 789221L) + 1376312589L) & 0x7FFFFFFFL;
-        return (int)(result >> 19 & 255);
+        int n = x + y * 57;
+        int n1 = (n << 13) ^ n;
+        int result = n1 * (n1 * n1 * 15731 + 789221) + 1376312589 & Integer.MAX_VALUE;
+        return result >> 19 & 0xFF;
     }
 
     public static int mulHSL(int hsl, int lightness) {

@@ -44,7 +44,6 @@ public class ModelViewerSelector extends VBox {
         setPadding(new Insets(10));
         setSpacing(5);
 
-        // Set up search field
         searchField.setPromptText("Search models...");
         searchField.textProperty().addListener((observable, oldValue, newValue) -> {
             String searchText = newValue.toLowerCase();
@@ -56,7 +55,6 @@ public class ModelViewerSelector extends VBox {
             });
         });
 
-        // Set up model list view
         modelListView.setItems(filteredModelList);
         modelListView.setPrefHeight(300);
         modelListView.getSelectionModel().selectedItemProperty().addListener(

@@ -16,8 +16,13 @@ import javafx.scene.shape.TriangleMesh;
 import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Translate;
 import org.lostcitymapeditor.OriginalCode.Model;
+import org.lostcitymapeditor.OriginalCode.Pix3D;
 
 import java.awt.event.MouseEvent;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class ModelViewer extends JFXPanel {
     private Group root;
@@ -66,49 +71,67 @@ public class ModelViewer extends JFXPanel {
                 return;
             }
 
-            TriangleMesh mesh = new TriangleMesh();
-
-            for (int i = 0; i < model.vertexCount; i++) {
-                mesh.getPoints().addAll(model.verticesX[i], model.verticesY[i], model.verticesZ[i]);
-            }
-
-            for (int i = 0; i < model.vertexCount; i++) {
-                mesh.getTexCoords().addAll(0, 0);
-            }
-
+            Map<Integer, List<Integer>> facesByColor = new HashMap<>();
             for (int i = 0; i < model.faceCount; i++) {
-                mesh.getFaces().addAll(
-                        model.faceIndicesA[i], 0,
-                        model.faceIndicesB[i], 0,
-                        model.faceIndicesC[i], 0
-                );
+                int color = 0;
+                if(model.faceColors != null) {
+                    color = Pix3D.colourTable[model.faceColors[i]];
+                } else if(model.faceColorA != null) {
+                    color = Pix3D.colourTable[model.faceColorA[i]];
+                }
+                facesByColor.computeIfAbsent(color, k -> new ArrayList<>()).add(i);
             }
 
-            MeshView meshView = new MeshView(mesh);
+            for (Map.Entry<Integer, List<Integer>> entry : facesByColor.entrySet()) {
+                int color = entry.getKey();
+                List<Integer> faces = entry.getValue();
 
-            PhongMaterial material = new PhongMaterial();
-            material.setDiffuseColor(Color.LIGHTGRAY);
-            meshView.setMaterial(material);
+                TriangleMesh colorMesh = new TriangleMesh();
 
-            double scale = calculateAppropriateScale(model);
-            meshView.setScaleX(scale);
-            meshView.setScaleY(scale);
-            meshView.setScaleZ(scale);
+                for (int i = 0; i < model.vertexCount; i++) {
+                    colorMesh.getPoints().addAll(model.verticesX[i], model.verticesY[i], model.verticesZ[i]);
+                }
 
-            centerModel(meshView, model);
+                for (int i = 0; i < model.vertexCount; i++) {
+                    colorMesh.getTexCoords().addAll(0, 0);
+                }
 
-            modelGroup.getChildren().add(meshView);
+                for (int faceIndex : faces) {
+                    colorMesh.getFaces().addAll(
+                            model.faceIndicesA[faceIndex], 0,
+                            model.faceIndicesB[faceIndex], 0,
+                            model.faceIndicesC[faceIndex], 0
+                    );
+                }
+
+                MeshView meshView = new MeshView(colorMesh);
+
+                int r = (color >> 16) & 0xFF;
+                int g = (color >> 8) & 0xFF;
+                int b = color & 0xFF;
+                Color fxColor = Color.rgb(r, g, b);
+
+                PhongMaterial material = new PhongMaterial();
+                material.setDiffuseColor(fxColor);
+                meshView.setMaterial(material);
+
+                double scale = calculateAppropriateScale(model);
+                meshView.setScaleX(scale);
+                meshView.setScaleY(scale);
+                meshView.setScaleZ(scale);
+
+                centerModel(meshView, model);
+
+                modelGroup.getChildren().add(meshView);
+            }
         });
     }
 
-    // In your ModelViewer class
     @Override
     public void processMouseEvent(MouseEvent e) {
-        // Only process events that are directly over this component
         if (contains(e.getPoint())) {
             super.processMouseEvent(e);
         } else {
-            // Let the event propagate up to the parent
             getParent().dispatchEvent(e);
         }
     }

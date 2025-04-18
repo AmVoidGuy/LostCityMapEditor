@@ -12,4 +12,14 @@ public class NpcData {
         this.z = z;
         this.id = id;
     }
+
+    public NpcData(NpcData other) {
+        if (other == null) {
+            throw new IllegalArgumentException("Cannot copy a null NpcData object.");
+        }
+        this.level = other.level;
+        this.x = other.x;
+        this.z = other.z;
+        this.id = other.id;
+    }
 }

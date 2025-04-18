@@ -11,6 +11,8 @@ public class PackFileTransformer {
     static String texturePackPath = "/pack/texture.pack";
     static String locPackPath = "/pack/loc.pack";
     static String modelPackPath = "/pack/model.pack";
+    static String npcPackPath = "/pack/npc.pack";
+    static String objPackPath = "/pack/obj.pack";
 
     public static Map<Integer, String> parseFloPack(String path) {
         return parsePackFile(path + floPackPath);
@@ -18,6 +20,14 @@ public class PackFileTransformer {
 
     public static Map<Integer, String> parseTexturePack(String path) {
         return parsePackFile(path + texturePackPath);
+    }
+
+    public static Map<Integer, String> parseNpcPack(String path) {
+        return parsePackFile(path + npcPackPath);
+    }
+
+    public static Map<Integer, String> parseObjPack(String path) {
+        return parsePackFile(path + objPackPath);
     }
 
     public static Map<Integer, String> parseLocPack(String path) {

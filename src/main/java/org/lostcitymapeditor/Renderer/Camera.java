@@ -59,7 +59,6 @@ public class Camera {
         }
     }
 
-    //In Camera Class, add the following function:
     public void processKeyboardInput(long window, float deltaTime) {
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
             processKeyboard(CameraMovement.FORWARD, deltaTime);

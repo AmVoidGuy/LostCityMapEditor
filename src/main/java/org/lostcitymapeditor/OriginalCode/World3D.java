@@ -1,5 +1,7 @@
 package org.lostcitymapeditor.OriginalCode;
 
+import org.lostcitymapeditor.DataObjects.GroundObject;
+import org.lostcitymapeditor.DataObjects.Npc;
 import org.lostcitymapeditor.DataObjects.newTriangle;
 
 public class World3D {
@@ -120,6 +122,16 @@ public class World3D {
             if (loc != null && loc.model != null) {
                 loc.model.draw(loc.yaw, loc.x, loc.y, loc.z, loc.bitset);
             }
+        }
+
+        Npc npc = tile.npc;
+        if (npc != null && npc.model != null) {
+            npc.model.draw(0, (128 * tile.x + 64), npc.height, (128 * tile.z + 64), 0);
+        }
+
+        GroundObject obj = tile.groundObj;
+        if (obj != null && obj.model != null) {
+            obj.model.draw(0, (128 * tile.x + 64), obj.height, (128 * tile.z + 64), 0);
         }
     }
 
@@ -259,6 +271,30 @@ public class World3D {
         this.levelTiles[level][tileX][tileZ].decor = decor;
     }
 
+    public void addNpc(int level, int tileX, int tileZ, int y, Model model, int size) {
+        for (int l = level; l >= 0; l--) {
+            if (this.levelTiles[l][tileX][tileZ] == null) {
+                this.levelTiles[l][tileX][tileZ] = new Ground(l, tileX, tileZ);
+            }
+        }
+        if (model != null) {
+            model = model.createCopy();
+        }
+        this.levelTiles[level][tileX][tileZ].npc = new Npc(y, model, size);
+    }
+
+    public void addObj(int level, int tileX, int tileZ, int y, Model model) {
+        for (int l = level; l >= 0; l--) {
+            if (this.levelTiles[l][tileX][tileZ] == null) {
+                this.levelTiles[l][tileX][tileZ] = new Ground(l, tileX, tileZ);
+            }
+        }
+        if (model != null) {
+            model = model.createCopy();
+        }
+        this.levelTiles[level][tileX][tileZ].groundObj = new GroundObject(y, model);
+    }
+
     public boolean addLoc(int level, int tileX, int tileZ, int y, Model model, Entity entity, int bitset, byte info, int width,int length, int yaw) {
         if (model == null && entity == null) {
             return true;
@@ -368,6 +404,58 @@ public class World3D {
                     if (decor != null && decor.model != null && decor.model.vertexNormal != null) {
                         this.mergeGroundDecorationNormals(level, tileX, tileZ, decor.model);
                         decor.model.applyLighting(lightAmbient, attenuation, lightSrcX, lightSrcY, lightSrcZ);
+                    }
+
+                    GroundObject obj = tile.groundObj;
+                    if (obj != null && obj.model != null) {
+                        int currentHeight = 0;
+                        boolean hasAffectingLoc = false;
+
+                        for (int l = 0; l < tile.locCount; l++) {
+                            Location loc = tile.locs[l];
+                            if (loc == null || loc.model == null) {
+                                continue;
+                            }
+                            hasAffectingLoc = true;
+                            int height = loc.model.objRaise;
+                            if (height > currentHeight) {
+                                currentHeight = height;
+                            }
+                        }
+
+                        if (!hasAffectingLoc) {
+                            int searchRadius = 8;
+                            for (int x = Math.max(0, tileX - searchRadius); x <= Math.min(maxTileX - 1, tileX + searchRadius); x++) {
+                                for (int z = Math.max(0, tileZ - searchRadius); z <= Math.min(maxTileZ - 1, tileZ + searchRadius); z++) {
+                                    if (x == tileX && z == tileZ) continue;
+
+                                    Ground otherTile = this.levelTiles[level][x][z];
+                                    if (otherTile == null) {
+                                        continue;
+                                    }
+
+                                    for (int l = 0; l < otherTile.locCount; l++) {
+                                        Location loc = otherTile.locs[l];
+                                        if (loc == null || loc.model == null) {
+                                            continue;
+                                        }
+
+                                        if (tileX >= loc.minSceneTileX && tileX <= loc.maxSceneTileX &&
+                                                tileZ >= loc.minSceneTileZ && tileZ <= loc.maxSceneTileZ) {
+                                            hasAffectingLoc = true;
+                                            int height = loc.model.objRaise;
+                                            if (height > currentHeight) {
+                                                currentHeight = height;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (hasAffectingLoc) {
+                            obj.model.translate(-currentHeight, 0, 0);
+                        }
                     }
                 }
             }

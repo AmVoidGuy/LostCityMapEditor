@@ -14,8 +14,8 @@ module org.lostcitymapeditor {
     requires org.reflections;
 
     opens org.lostcitymapeditor to javafx.fxml;
-    exports org.lostcitymapeditor.Renderer to javafx.graphics; // Export Renderer package
+    exports org.lostcitymapeditor.Renderer to javafx.graphics;
 
-    opens org.lostcitymapeditor.Renderer to javafx.fxml; // Optional: If using FXML
+    opens org.lostcitymapeditor.Renderer to javafx.fxml;
     exports org.lostcitymapeditor;
 }

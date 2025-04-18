@@ -78,14 +78,23 @@ public class OpenGLRenderer {
     private JFXPanel fxPanel;
     private ListView<Integer> shapeListView;
     private CheckBox locCheckbox;
+    private CheckBox npcCheckbox;
+    private CheckBox objCheckbox;
     private VBox tileInspector;
     private VBox locInspector;
+    private VBox npcInspector;
+    private VBox objInspector;
     private Label inspectorTitle;
     private Label locPositionLabel;
+    private Label npcPositionLabel;
+    private Label objPositionLabel;
     private TextField newHeightTextField;
+    private TextField objAmountTextField;
     public static String currentMapFileName = "m50_50.jm2";
     public static Map<String, Integer> underlayMap;
     public static Map<String, Object> overlayMap;
+    public static Map<String, Object> npcMap;
+    public static Map<String, Object> objMap;
     public static Map<Integer, Image> shapeImages;
     public static int currentLevel = 0;
     private static MapData currentMapData;
@@ -108,6 +117,8 @@ public class OpenGLRenderer {
     private Label tileRotationLabel;
     private Label tileTextureLabel;
     private Label locDetailsLabel;
+    private Label objDetailsLabel;
+    private Label npcDetailsLabel;
     private Set<Integer> hoveredTileTriangleIndices = new HashSet<>();
     private final TextureManager textureManager = new TextureManager();
     private VertexDataHandler vertexDataHandler = new VertexDataHandler();
@@ -116,7 +127,12 @@ public class OpenGLRenderer {
     private int selectedRotation = -1;
     private int selectedLocRotation;
     private int selectedLocShape = 10;
+    private int selectedNpcId = -1;
+    private int selectedObjId = -1;
     private static String serverDirectoryPath;
+    private CopiedTileData copiedTileData = null;
+    private final Deque<MapData> historyStack = new ArrayDeque<>();
+    private static final int MAX_HISTORY_SIZE = 30;
 
     private void updateHoveredTriangle(double mouseX, double mouseY) {
         hoveredTileTriangleIndices.clear();
@@ -182,6 +198,8 @@ public class OpenGLRenderer {
             world.loadGround(currentMapData);
             world3D = new World3D(world.levelHeightmap, REGION_SIZE, LEVELS, REGION_SIZE);
             world.loadLocations(world3D, currentMapData);
+            world.loadNpcs(world3D, currentMapData);
+            world.loadObjs(world3D, currentMapData);
             world.build(world3D);
             world3D.draw(currentLevel);
             List<newTriangle> triangleList = getTriangles();
@@ -273,6 +291,12 @@ public class OpenGLRenderer {
             if(locCheckbox.isSelected()) {
                 world.loadLocations(world3D, currentMapData);
             }
+            if(npcCheckbox.isSelected()) {
+                world.loadNpcs(world3D, currentMapData);
+            }
+            if(objCheckbox.isSelected()) {
+                world.loadObjs(world3D, currentMapData);
+            }
             world.build(world3D);
             newTriangle.clearCollectedTriangles();
             world3D.draw(currentLevel);
@@ -290,7 +314,7 @@ public class OpenGLRenderer {
         JFrame frame = new JFrame("LostCity Map Editor Config");
         fxPanel = new JFXPanel();
         frame.add(fxPanel);
-        frame.setSize(900, 900);
+        frame.setSize(1100, 900);
         frame.setVisible(true);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
@@ -308,7 +332,7 @@ public class OpenGLRenderer {
             overlayNames.add(1, "Clear");
 
             ListView<String>overlayListView = new ListView<>(overlayNames);
-            overlayListView.setPrefHeight(50); // Adjust as needed
+            overlayListView.setPrefHeight(50);
             overlayListView.setCellFactory(param -> new ListCell<>() {
                 private final Rectangle rect = new Rectangle(20, 20);
                 private final ImageView textureView = new ImageView();
@@ -326,10 +350,10 @@ public class OpenGLRenderer {
                             if (overlayData.containsKey("rgb")) {
                                 Integer color = (Integer) overlayData.get("rgb");
                                 if (color != null) {
-                                    rect.setFill(javafx.scene.paint.Color.rgb((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF));
+                                    rect.setFill(Color.rgb((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF));
                                     setGraphic(rect);
                                 } else {
-                                    rect.setFill(javafx.scene.paint.Color.TRANSPARENT);
+                                    rect.setFill(Color.TRANSPARENT);
                                     setGraphic(null);
                                 }
                             } else if (overlayData.containsKey("texture")) {
@@ -456,6 +480,7 @@ public class OpenGLRenderer {
                 levelButton.setOnAction(e -> {
                     currentLevel = level;
                     if (currentMapData != null) {
+                        historyStack.clear();
                         drawMapLevel();
                     }
                 });
@@ -465,6 +490,10 @@ public class OpenGLRenderer {
             Label displayLabel = new Label("Display:");
             locCheckbox = new CheckBox("Locs");
             locCheckbox.setSelected(true);
+            npcCheckbox = new CheckBox("Npcs");
+            npcCheckbox.setSelected(true);
+            objCheckbox = new CheckBox("Objs");
+            objCheckbox.setSelected(true);
 
             Button exportButton = new Button("Export Map");
 
@@ -533,18 +562,18 @@ public class OpenGLRenderer {
                         }
                     });
 
-            inspectorTitle = new Label("--Locs--\nLeft Click to inspect\nShift + Click to update");
+            inspectorTitle = new Label("--Locs--\nLeft Click to inspect\nL + click to update");
             locPositionLabel = new Label("Position: ");
             locDetailsLabel = new Label();
             Button clearLocsButton = new Button("Clear Tile Locs");
             clearLocsButton.setOnAction(e -> {
                 if (selectedTile != null) {
+                    saveStateBeforeChange();
                     Platform.runLater(() -> {
                         currentMapData.removeLocData(selectedTile.level, selectedTile.x, selectedTile.z);
                         drawNewMap(currentMapData);
                         updateLocInspector();
                     });
-                    System.out.println("Clear Locs button pressed for tile at X=" + selectedTile.x + ", Z=" + selectedTile.z + ", Level=" + selectedTile.level);
                 } else {
                     System.out.println("No tile selected to clear Locs from.");
                 }
@@ -552,12 +581,157 @@ public class OpenGLRenderer {
 
             locInspector.getChildren().addAll(inspectorTitle, locPositionLabel, locDetailsLabel, clearLocsButton, newLocRotationLabel, locRotationBox, newLocShapeLabel, locShapeListView);
 
+            npcInspector = new VBox();
+            npcInspector.setPadding(new Insets(10));
+            npcInspector.setBorder(new Border(new BorderStroke(Color.BLACK, BorderStrokeStyle.SOLID, CornerRadii.EMPTY, BorderWidths.DEFAULT)));
+            npcInspector.setPrefWidth(250);
+
+            inspectorTitle = new Label("--Npcs--\nLeft Click to inspect\nN + Click to update");
+            npcPositionLabel = new Label("Position: ");
+            npcDetailsLabel = new Label();
+            Button clearNpcsButton = new Button("Clear Tile Npcs");
+            clearNpcsButton.setOnAction(e -> {
+                if (selectedTile != null) {
+                    saveStateBeforeChange();
+                    Platform.runLater(() -> {
+                        currentMapData.removeNpcData(selectedTile.level, selectedTile.x, selectedTile.z);
+                        drawNewMap(currentMapData);
+                        updateNpcInspector();
+                    });
+                } else {
+                    System.out.println("No tile selected to clear Npcs from.");
+                }
+            });
+
+            Set<String> npcNameSet = npcMap.keySet();
+
+            List<String> sortedNpcNames = new ArrayList<>(npcNameSet);
+            Collections.sort(sortedNpcNames);
+            ObservableList<String> npcNamesObservable = FXCollections.observableArrayList(sortedNpcNames);
+
+            npcNamesObservable.addFirst("None");
+
+            ListView<String> npcListView = new ListView<>(npcNamesObservable);
+            npcListView.setPrefHeight(150);
+
+            npcListView.setCellFactory(param -> new ListCell<String>() {
+                @Override
+                protected void updateItem(String npcName, boolean empty) {
+                    super.updateItem(npcName, empty);
+                    if (empty || npcName == null) {
+                        setText(null);
+                        setGraphic(null);
+                    } else {
+                        setText(npcName);
+                        setGraphic(null);
+                    }
+                }
+            });
+
+            npcListView.getSelectionModel().selectedItemProperty().addListener(
+                    (observable, oldValue, newValue) -> {
+                        if (newValue == null || newValue.equals("None")) {
+                            selectedNpcId = -1;
+                        } else {
+                            int npcId = -1;
+                            for (Integer id : FileLoader.getNpcMap().keySet()) {
+                                if (FileLoader.getNpcMap().get(id).equals(newValue)) {
+                                    npcId = id;
+                                    break;
+                                }
+                            }
+                            if (npcId == -1) {
+                                System.err.println("Error: Could not find NPC data or ID key for selected item '" + newValue + "'.");
+                            }
+                            selectedNpcId = npcId;
+                        }
+                    }
+            );
+
+            npcListView.getSelectionModel().select("None");
+
+            npcInspector.getChildren().addAll(inspectorTitle, npcPositionLabel, npcDetailsLabel, clearNpcsButton, npcListView);
+
+            objInspector = new VBox();
+            objInspector.setPadding(new Insets(10));
+            objInspector.setBorder(new Border(new BorderStroke(Color.BLACK, BorderStrokeStyle.SOLID, CornerRadii.EMPTY, BorderWidths.DEFAULT)));
+            objInspector.setPrefWidth(250);
+
+            inspectorTitle = new Label("--Objs--\nLeft Click to inspect\nO + Click to update");
+            objPositionLabel = new Label("Position: ");
+            objDetailsLabel = new Label();
+            Button clearObjsButton = new Button("Clear Tile Objs");
+            clearObjsButton.setOnAction(e -> {
+                if (selectedTile != null) {
+                    saveStateBeforeChange();
+                    Platform.runLater(() -> {
+                        currentMapData.removeObjData(selectedTile.level, selectedTile.x, selectedTile.z); // Modification
+                        drawNewMap(currentMapData);
+                        updateObjInspector();
+                    });
+                } else {
+                    System.out.println("No tile selected to clear Objs from.");
+                }
+            });
+
+            Set<String> objNameSet = objMap.keySet();
+
+            List<String> sortedObjNames = new ArrayList<>(objNameSet);
+            Collections.sort(sortedObjNames);
+            ObservableList<String> objNamesObservable = FXCollections.observableArrayList(sortedObjNames);
+
+            objNamesObservable.addFirst("None");
+
+            ListView<String> objListView = new ListView<>(objNamesObservable);
+            objListView.setPrefHeight(150);
+
+            objListView.setCellFactory(param -> new ListCell<String>() {
+                @Override
+                protected void updateItem(String objName, boolean empty) {
+                    super.updateItem(objName, empty);
+                    if (empty || objName == null) {
+                        setText(null);
+                        setGraphic(null);
+                    } else {
+                        setText(objName);
+                        setGraphic(null);
+                    }
+                }
+            });
+
+            objListView.getSelectionModel().selectedItemProperty().addListener(
+                    (observable, oldValue, newValue) -> {
+                        if (newValue == null || newValue.equals("None")) {
+                            selectedObjId = -1;
+                        } else {
+                            int objId = -1;
+                            for (Integer id : FileLoader.getObjMap().keySet()) {
+                                if (FileLoader.getObjMap().get(id).equals(newValue)) {
+                                    objId = id;
+                                    break;
+                                }
+                            }
+                            if (objId == -1) {
+                                System.err.println("Error: Could not find OBJ data or ID key for selected item '" + newValue + "'.");
+                            }
+                            selectedObjId = objId;
+                        }
+                    }
+            );
+
+            objListView.getSelectionModel().select("None");
+
+            Label objAmountLabel = new Label("Amount:");
+            objAmountTextField = new TextField();
+
+            objInspector.getChildren().addAll(inspectorTitle, objPositionLabel, objDetailsLabel, clearObjsButton, objListView, objAmountLabel, objAmountTextField);
+
             tileInspector = new VBox();
             tileInspector.setPadding(new Insets(10));
             tileInspector.setBorder(new Border(new BorderStroke(Color.BLACK, BorderStrokeStyle.SOLID, CornerRadii.EMPTY, BorderWidths.DEFAULT)));
             tileInspector.setPrefWidth(250);
 
-            Label inspectorTitle = new Label("--Tiles--\nLeft Click to inspect\nCtrl + Click to update");
+            Label inspectorTitle = new Label("--Tiles--\nLeft Click to inspect\nL + Click to update");
             Label currentUnderlayLabel = new Label("New Underlay");
             ListView<String> underlayListView = new ListView<>(underlayNames);
             underlayListView.setPrefHeight(50);
@@ -574,10 +748,10 @@ public class OpenGLRenderer {
                         setText(item);
                         Integer color = underlayMap.get(item);
                         if (color != null) {
-                            rect.setFill(javafx.scene.paint.Color.rgb((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF));
+                            rect.setFill(Color.rgb((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF));
                             setGraphic(rect);
                         } else {
-                            rect.setFill(javafx.scene.paint.Color.TRANSPARENT);
+                            rect.setFill(Color.TRANSPARENT);
                             setGraphic(null);
                         }
                     }
@@ -650,6 +824,8 @@ public class OpenGLRenderer {
                     currentLevelLabel, levelRadioButtons,
                     displayLabel,
                     locCheckbox,
+                    npcCheckbox,
+                    objCheckbox,
                     exportButton
             );
             controlsBox.setPadding(new Insets(0));
@@ -669,7 +845,7 @@ public class OpenGLRenderer {
             modelViewerBox.setBorder(new Border(new BorderStroke(Color.BLACK, BorderStrokeStyle.SOLID, CornerRadii.EMPTY, BorderWidths.DEFAULT)));
             modelViewerBox.setPrefWidth(250);
             modelViewerBox.getChildren().addAll(modelViewerSelector, modelViewerSwingNode);
-            HBox mainContent = new HBox(tileInspector, locInspector, modelViewerBox);
+            HBox mainContent = new HBox(tileInspector, locInspector, modelViewerBox, npcInspector, objInspector);
 
             BorderPane rootPane = new BorderPane();
             rootPane.setLeft(sideBar);
@@ -684,12 +860,36 @@ public class OpenGLRenderer {
                             currentMapFileName = newValue;
                             updateCurrentMapLabel(currentMapFileName);
                             currentMapData = MapDataTransformer.parseJM2File(serverDirectoryPath + "/maps/" + currentMapFileName);
+
+                            historyStack.clear();
+
                             drawNewMap(currentMapData);
+                            selectedTile = null;
+                            updateTileInspector();
+                            updateLocInspector();
+                            updateNpcInspector();
+                            updateObjInspector();
                         }
                     }
             );
 
             locCheckbox.setOnAction(e -> {
+                if (currentMapData != null) {
+                    SwingUtilities.invokeLater(() -> {
+                        drawNewMap(currentMapData);
+                    });
+                }
+            });
+
+            npcCheckbox.setOnAction(e -> {
+                if (currentMapData != null) {
+                    SwingUtilities.invokeLater(() -> {
+                        drawNewMap(currentMapData);
+                    });
+                }
+            });
+
+            objCheckbox.setOnAction(e -> {
                 if (currentMapData != null) {
                     SwingUtilities.invokeLater(() -> {
                         drawNewMap(currentMapData);
@@ -789,6 +989,60 @@ public class OpenGLRenderer {
         });
     }
 
+    public void updateNpcInspector() {
+        Platform.runLater(() -> {
+            if (selectedTile != null) {
+                npcPositionLabel.setText(String.format("Position: X=%d, Z=%d Level=%d",
+                        selectedTile.x,
+                        selectedTile.z,
+                        selectedTile.level));
+                List<NpcData> currentNpcs = currentMapData.getNpcData(selectedTile.level, selectedTile.x,selectedTile.z);
+
+                StringBuilder details = new StringBuilder();
+                details.append(String.format("--------------------%n"));
+                if (!currentNpcs.isEmpty()) {
+                    for (int i = 0; i < currentNpcs.size(); i++) {
+                        NpcData npc = currentNpcs.get(i);
+                        details.append(String.format("Name: %s%nID: %d%n", FileLoader.getNpcMap().get(npc.id), npc.id));
+                        if (i < currentNpcs.size() - 1) {
+                            details.append(String.format("--------------------%n"));
+                        }
+                    }
+                } else {
+                    details.append("No NpcData found for this tile.");
+                }
+                npcDetailsLabel.setText(details.toString());
+            }
+        });
+    }
+
+    public void updateObjInspector() {
+        Platform.runLater(() -> {
+            if (selectedTile != null) {
+                objPositionLabel.setText(String.format("Position: X=%d, Z=%d Level=%d",
+                        selectedTile.x,
+                        selectedTile.z,
+                        selectedTile.level));
+                List<ObjData> currentObjs = currentMapData.getObjData(selectedTile.level, selectedTile.x,selectedTile.z);
+
+                StringBuilder details = new StringBuilder();
+                details.append(String.format("--------------------%n"));
+                if (!currentObjs.isEmpty()) {
+                    for (int i = 0; i < currentObjs.size(); i++) {
+                        ObjData obj = currentObjs.get(i);
+                        details.append(String.format("Name: %s%nCount: %d%nID: %d%n", FileLoader.getObjMap().get(obj.id), obj.count, obj.id));
+                        if (i < currentObjs.size() - 1) {
+                            details.append(String.format("--------------------%n"));
+                        }
+                    }
+                } else {
+                    details.append("No ObjData found for this tile.");
+                }
+                objDetailsLabel.setText(details.toString());
+            }
+        });
+    }
+
     public void run() {
         setupJavaFXUI();
         init();
@@ -838,6 +1092,20 @@ public class OpenGLRenderer {
             if (key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE) {
                 glfwSetWindowShouldClose(window, true);
             }
+
+            if ((mods & GLFW_MOD_CONTROL) != 0 && key == GLFW_KEY_Z && action == GLFW_RELEASE) {
+                performUndo();
+                return;
+            }
+
+            if ((mods & GLFW_MOD_CONTROL) != 0) {
+                if (key == GLFW_KEY_C && action == GLFW_RELEASE) {
+                    copyTileDataToMemory();
+                } else if (key == GLFW_KEY_V && action == GLFW_RELEASE) {
+                    saveStateBeforeChange();
+                    pasteTileDataFromMemory();
+                }
+            }
         });
 
 
@@ -881,7 +1149,9 @@ public class OpenGLRenderer {
                 int mouseY = (int) ypos[0];
 
                 boolean ctrlPressed = (mods & GLFW_MOD_CONTROL) != 0;
-                boolean shiftPressed = (mods & GLFW_MOD_SHIFT) != 0;
+                boolean OPressed = glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS;
+                boolean LPressed = glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS;
+                boolean NPressed = glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS;
                 newTriangle clickedTriangle = pickTriangle(mouseX, mouseY);
 
                 if (clickedTriangle != null) {
@@ -910,6 +1180,38 @@ public class OpenGLRenderer {
                 }
                 updateTileInspector();
                 updateLocInspector();
+                updateNpcInspector();
+                updateObjInspector();
+
+                boolean modificationAttempted = false;
+
+                if (ctrlPressed) {
+                    if (selectedTile != null) {
+                        modificationAttempted = true;
+                    }
+                }
+
+                if (LPressed) {
+                    if (selectedTile != null && modelViewerSelector.getSelectedModel() != null) {
+                        modificationAttempted = true;
+                    }
+                }
+
+                if (NPressed) {
+                    if (selectedTile != null && selectedNpcId != -1) {
+                        modificationAttempted = true;
+                    }
+                }
+
+                if (OPressed) {
+                    if (selectedTile != null && selectedObjId != -1) {
+                        modificationAttempted = true;
+                    }
+                }
+
+                if (modificationAttempted) {
+                    saveStateBeforeChange();
+                }
 
                 if (ctrlPressed) {
                     if (selectedTile != null) {
@@ -985,7 +1287,7 @@ public class OpenGLRenderer {
                     }
                 }
 
-                if (shiftPressed) {
+                if (LPressed) {
                     if (selectedTile != null) {
                         String selectedLocName = modelViewerSelector.getSelectedModel();
                         if (selectedLocName != null) {
@@ -1006,6 +1308,41 @@ public class OpenGLRenderer {
                             drawNewMap(currentMapData);
                         } else {
                             System.err.println("No model selected in Model Viewer.");
+                        }
+                    }
+                }
+
+                if (NPressed) {
+                    if (selectedTile != null) {
+                        if (selectedNpcId != -1) {
+                            NpcData newNpc = new NpcData(selectedTile.level, selectedTile.x, selectedTile.z, selectedNpcId);
+                            currentMapData.npcs.add(newNpc);
+                            drawNewMap(currentMapData);
+                        } else {
+                            System.err.println("No NPC selected.");
+                        }
+                    }
+                }
+
+                if (OPressed) {
+                    if (selectedTile != null) {
+                        if (selectedObjId != -1) {
+                            int objAmount = 1;
+                            if (objAmountTextField.getText() != null && !objAmountTextField.getText().isEmpty()) {
+                                try {
+                                    objAmount = Integer.parseInt(objAmountTextField.getText());
+                                } catch (NumberFormatException e) {
+                                    System.err.println("Invalid object amount: " + objAmountTextField.getText());
+                                }
+                            }
+                            if (objAmount < 1) {
+                                objAmount = 1;
+                            }
+                            ObjData newObj = new ObjData(selectedTile.level, selectedTile.x, selectedTile.z, selectedObjId, objAmount);
+                            currentMapData.objects.add(newObj);
+                            drawNewMap(currentMapData);
+                        } else {
+                            System.err.println("No OBJ selected.");
                         }
                     }
                 }
@@ -1144,6 +1481,8 @@ public class OpenGLRenderer {
         underlayMap = FileLoader.getUnderlayMap();
         overlayMap = FileLoader.getOverlayMap();
         shapeImages = FileLoader.getShapeImages();
+        npcMap = FileLoader.getAllNpcMap();
+        objMap = FileLoader.getAllObjMap();
 
         currentMapData = MapDataTransformer.parseJM2File(serverDirectoryPath + "/maps/" + currentMapFileName);
 
@@ -1155,6 +1494,8 @@ public class OpenGLRenderer {
         world.loadGround(currentMapData);
         world3D = new World3D(world.levelHeightmap, REGION_SIZE, LEVELS, REGION_SIZE);
         world.loadLocations(world3D, currentMapData);
+        world.loadNpcs(world3D, currentMapData);
+        world.loadObjs(world3D, currentMapData);
         world.build(world3D);
 
         distance = new int[9];
@@ -1315,4 +1656,102 @@ public class OpenGLRenderer {
             return null;
         }
     }
+
+    private void copyTileDataToMemory() {
+        if (selectedTile == null || currentMapData == null) {
+            copiedTileData = null;
+            return;
+        }
+        List<LocData> locsOnTile = currentMapData.getLocData(selectedTile.level, selectedTile.x, selectedTile.z);
+        List<NpcData> npcsOnTile = currentMapData.getNpcData(selectedTile.level, selectedTile.x, selectedTile.z);
+        List<ObjData> objsOnTile = currentMapData.getObjData(selectedTile.level, selectedTile.x, selectedTile.z);
+
+        copiedTileData = new CopiedTileData(selectedTile, locsOnTile, npcsOnTile, objsOnTile);
+
+        System.out.println("Tile data copied");
+    }
+
+    private void pasteTileDataFromMemory() {
+        if (copiedTileData == null) {
+            System.out.println("Paste Error: No tile data copied to memory (use Ctrl+C).");
+            return;
+        }
+        if (selectedTile == null) {
+            System.out.println("Paste Error: No target tile selected.");
+            return;
+        }
+
+        int targetLevel = selectedTile.level;
+        int targetX = selectedTile.x;
+        int targetZ = selectedTile.z;
+
+        TileData newTargetTile = new TileData(targetLevel, targetX, targetZ);
+        newTargetTile.height = copiedTileData.height;
+        newTargetTile.perlin = copiedTileData.perlin;
+        newTargetTile.overlay = copiedTileData.overlayId != null ? new OverlayData(copiedTileData.overlayId) : null;
+        newTargetTile.underlay = copiedTileData.underlayId != null ? new UnderlayData(copiedTileData.underlayId) : null;
+        newTargetTile.shape = copiedTileData.shape;
+        newTargetTile.rotation = copiedTileData.rotation;
+        newTargetTile.flag = copiedTileData.flag;
+
+        currentMapData.mapTiles[targetLevel][targetX][targetZ] = newTargetTile;
+
+        currentMapData.locations.removeIf(loc -> loc.level == targetLevel && loc.x == targetX && loc.z == targetZ);
+        for (LocData copiedLoc : copiedTileData.locs) {
+            LocData newLoc = new LocData(targetLevel, targetX, targetZ, copiedLoc.id, copiedLoc.shape);
+            if (copiedLoc.rotation != null) {
+                newLoc.rotation = copiedLoc.rotation;
+            } else {
+                newLoc.rotation = 0;
+            }
+            currentMapData.locations.add(newLoc);
+        }
+
+        currentMapData.npcs.removeIf(npc -> npc.level == targetLevel && npc.x == targetX && npc.z == targetZ);
+        for (NpcData copiedNpc : copiedTileData.npcs) {
+            NpcData newNpc = new NpcData(targetLevel, targetX, targetZ, copiedNpc.id);
+            currentMapData.npcs.add(newNpc);
+        }
+
+        currentMapData.objects.removeIf(obj -> obj.level == targetLevel && obj.x == targetX && obj.z == targetZ);
+        for (ObjData copiedObj : copiedTileData.objs) {
+            ObjData newObj = new ObjData(targetLevel, targetX, targetZ, copiedObj.id, copiedObj.count);
+            currentMapData.objects.add(newObj);
+        }
+
+        drawNewMap(currentMapData);
+
+        selectedTile = newTargetTile;
+
+        updateTileInspector();
+        updateLocInspector();
+        updateNpcInspector();
+        updateObjInspector();
+    }
+
+    private void saveStateBeforeChange() {
+        if (currentMapData == null) return;
+
+        MapData stateToSave = currentMapData.deepCopy();
+        historyStack.push(stateToSave);
+
+        if (historyStack.size() > MAX_HISTORY_SIZE) {
+            historyStack.removeLast();
+        }
+    }
+
+    private void performUndo() {
+        if (historyStack.isEmpty()) {
+            System.out.println("Nothing to undo.");
+            return;
+        }
+        currentMapData = historyStack.pop();
+        drawNewMap(currentMapData);
+        selectedTile = null;
+        updateTileInspector();
+        updateLocInspector();
+        updateNpcInspector();
+        updateObjInspector();
+    }
+
 }

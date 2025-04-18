@@ -6,7 +6,6 @@ public class ShaderManager {
 
     private int shaderProgram;
 
-    // Shader source code as constants within the ShaderManager.
     private static final String VERTEX_SHADER_SOURCE =
             "#version 330 core\n" +
                     "layout (location = 0) in vec3 aPos;\n" +
