@@ -731,7 +731,7 @@ public class OpenGLRenderer {
             tileInspector.setBorder(new Border(new BorderStroke(Color.BLACK, BorderStrokeStyle.SOLID, CornerRadii.EMPTY, BorderWidths.DEFAULT)));
             tileInspector.setPrefWidth(250);
 
-            Label inspectorTitle = new Label("--Tiles--\nLeft Click to inspect\nL + Click to update");
+            Label inspectorTitle = new Label("--Tiles--\nLeft Click to inspect\nCtrl + Click to update");
             Label currentUnderlayLabel = new Label("New Underlay");
             ListView<String> underlayListView = new ListView<>(underlayNames);
             underlayListView.setPrefHeight(50);
@@ -787,7 +787,7 @@ public class OpenGLRenderer {
 
             rotationGroup.selectedToggleProperty().addListener((observable, oldValue, newValue) -> {
                 if (newValue != null) {
-                    selectedRotation = (Integer) newValue.getUserData() / 90;
+                    selectedRotation = (Integer) newValue.getUserData();
                 }
             });
 
@@ -946,7 +946,7 @@ public class OpenGLRenderer {
 
                 tileShapeLabel.setText("Shape ID: " + (selectedTile.shape != null ? selectedTile.shape : 0));
 
-                tileRotationLabel.setText("Shape Rotation: " + (selectedTile.rotation != null ? selectedTile.rotation : 0));
+                tileRotationLabel.setText("Shape Rotation: " + (selectedTile.rotation != null ? selectedTile.rotation * 90 : 0));
 
                 tileTextureLabel.setText("Texture Name: " + (selectedTile.overlay != null && selectedTile.overlay.texture != null ?
                         selectedTile.overlay.texture : "None"));
