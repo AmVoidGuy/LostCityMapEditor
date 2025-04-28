@@ -201,14 +201,14 @@ public class MapDataTransformer {
                                         dataString.append(" o").append(tile.overlay.id + 1);
                                     }
 
-                                    if (tile.shape != null) {
+                                    if (tile.shape != null && tile.shape != 0) {
                                         dataString.append(";").append(tile.shape);
                                     }
-                                    if (tile.rotation != null) {
+                                    if (tile.rotation != null && tile.rotation != 0 && tile.shape != null && tile.shape != 0) {
                                         dataString.append(";").append(tile.rotation);
                                     }
 
-                                    if (tile.flag != null) {
+                                    if (tile.flag != null && tile.flag != 0) {
                                         dataString.append(" f").append(tile.flag);
                                     }
                                     if (tile.underlay != null) {

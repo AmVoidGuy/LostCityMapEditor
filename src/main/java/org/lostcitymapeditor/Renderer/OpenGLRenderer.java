@@ -447,7 +447,7 @@ public class OpenGLRenderer {
                         setText(null);
                     } else {
                         String description = switch (item) {
-                            case 0 -> "Default";
+                            case 0 -> "None";
                             case 1 -> "Unwalkable";
                             case 2 -> "Bridge";
                             case 4 -> "Remove roof";
