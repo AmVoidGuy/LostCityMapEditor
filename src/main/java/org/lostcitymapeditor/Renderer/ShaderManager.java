@@ -42,7 +42,8 @@ public class ShaderManager {
                     "in float textureID;\n" +
                     "in float isHovered;\n" +
                     "out vec4 FragColor;\n" +
-                    "uniform sampler2D textures[50];\n" +
+                    "uniform sampler2D currentTexture;\n" +
+                    "uniform int expectedTextureID;\n" +
                     "\n" +
                     "void main() {\n" +
                     "    vec3 baseColor = vertexColor;\n" +
@@ -53,15 +54,16 @@ public class ShaderManager {
                     "\n" +
                     "    if (useTexture > 0.5) {\n" +
                     "        int texID = int(round(textureID));\n" +
-                    "        if (texID >= 0 && texID < 50) {\n" +
-                    "            vec4 texColor = texture(textures[texID], TexCoord);\n" +
+                    "        if (texID == expectedTextureID) {\n" +
+                    "            vec4 texColor = texture(currentTexture, TexCoord);\n" +
                     "            if (texColor.a < 0.1) discard;\n" +
                     "           if (isHovered > 0.5) { \n" +
                     "               FragColor = texColor * vec4(baseColor, 1.0);\n" +
                     "           } else {\n" +
                     "               FragColor = texColor; \n" +
                     "           }   } else {\n" +
-                    "            FragColor = vec4(1.0, 0.0, 1.0, 1.0);\n" +
+                    "            // Fallback for wrong texture ID\n" +
+                    "            FragColor = vec4(baseColor, 1.0);\n" +
                     "        }\n" +
                     "    } else {\n" +
                     "        FragColor = vec4(baseColor, 1.0);\n" +

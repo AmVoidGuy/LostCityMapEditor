@@ -23,7 +23,7 @@ public class ModelViewerSelector extends VBox {
     private final TextField searchField = new TextField();
     private final ListView<String> modelListView = new ListView<>();
     private final Map<String, Object> locMap;
-    private final FilteredList<String> filteredModelList;
+    private FilteredList<String> filteredModelList;
     private final Label statusLabel = new Label();
     private final int LOAD_CHUNK_SIZE = 3600;
     private final ProgressBar loadingProgress = new ProgressBar(0);
@@ -31,13 +31,22 @@ public class ModelViewerSelector extends VBox {
 
     public ModelViewerSelector(ModelViewer modelViewer) {
         this.modelViewer = modelViewer;
-        this.locMap = new HashMap<>(FileLoader.getAllLocMap());
+        this.locMap = new HashMap<>();
 
-        ObservableList<String> locNames = FXCollections.observableArrayList();
-        this.filteredModelList = new FilteredList<>(locNames, p -> true);
+        Platform.runLater(() -> {
+            try {
+                this.locMap.putAll(FileLoader.getAllLocMap());
 
-        setupUI();
-        loadInitialItems();
+                ObservableList<String> locNames = FXCollections.observableArrayList();
+                this.filteredModelList = new FilteredList<>(locNames, p -> true);
+
+                setupUI();
+                loadInitialItems();
+            } catch (Exception e) {
+                System.err.println("Error initializing ModelViewerSelector: " + e.getMessage());
+                e.printStackTrace();
+            }
+        });
     }
 
     private void setupUI() {
@@ -91,24 +100,32 @@ public class ModelViewerSelector extends VBox {
     }
 
     private void loadInitialItems() {
-        new Thread(() -> {
-            List<String> sortedModels = new ArrayList<>(locMap.keySet());
-            Collections.sort(sortedModels);
+        Platform.runLater(() -> {
+            try {
+                if (locMap != null && !locMap.isEmpty()) {
+                    List<String> sortedModels = new ArrayList<>(locMap.keySet());
+                    Collections.sort(sortedModels);
 
-            List<String> initialChunk = sortedModels.subList(0,
-                    Math.min(LOAD_CHUNK_SIZE, sortedModels.size()));
+                    List<String> initialChunk = sortedModels.subList(0,
+                            Math.min(LOAD_CHUNK_SIZE, sortedModels.size()));
 
-            Platform.runLater(() -> {
-                ObservableList<String> source = (ObservableList<String>) filteredModelList.getSource();
-                source.clear();
-                source.addAll(initialChunk);
-                loadedItemCount = initialChunk.size();
-                statusLabel.setText(String.format("Showing %d of %d locs",
-                        loadedItemCount, locMap.size()));
+                    ObservableList<String> source = (ObservableList<String>) filteredModelList.getSource();
+                    source.clear();
+                    source.addAll(initialChunk);
+                    loadedItemCount = initialChunk.size();
 
-            });
-        }).start();
+                    statusLabel.setText(String.format("Showing %d of %d locs",
+                            loadedItemCount, locMap.size()));
+                } else {
+                    statusLabel.setText("No loc data available");
+                }
+            } catch (Exception e) {
+                System.err.println("Error loading initial items: " + e.getMessage());
+                statusLabel.setText("Error loading loc data");
+            }
+        });
     }
+
     public void updateModel(int shape){
         loadSelectedModel(modelListView.getSelectionModel().getSelectedItem(), shape);
     }

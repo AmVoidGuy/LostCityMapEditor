@@ -133,6 +133,7 @@ public class OpenGLRenderer {
     private CopiedTileData copiedTileData = null;
     private final Deque<MapData> historyStack = new ArrayDeque<>();
     private static final int MAX_HISTORY_SIZE = 30;
+    private int isHoveredVBO = -1;
 
     private void updateHoveredTriangle(double mouseX, double mouseY) {
         hoveredTileTriangleIndices.clear();
@@ -151,7 +152,6 @@ public class OpenGLRenderer {
 
         updateHoveredVBO();
     }
-    private int isHoveredVBO = -1;
 
     private void updateHoveredVBO() {
         if (vao == 0) return;
@@ -574,8 +574,6 @@ public class OpenGLRenderer {
                         drawNewMap(currentMapData);
                         updateLocInspector();
                     });
-                } else {
-                    System.out.println("No tile selected to clear Locs from.");
                 }
             });
 
@@ -598,8 +596,6 @@ public class OpenGLRenderer {
                         drawNewMap(currentMapData);
                         updateNpcInspector();
                     });
-                } else {
-                    System.out.println("No tile selected to clear Npcs from.");
                 }
             });
 
@@ -665,12 +661,10 @@ public class OpenGLRenderer {
                 if (selectedTile != null) {
                     saveStateBeforeChange();
                     Platform.runLater(() -> {
-                        currentMapData.removeObjData(selectedTile.level, selectedTile.x, selectedTile.z); // Modification
+                        currentMapData.removeObjData(selectedTile.level, selectedTile.x, selectedTile.z);
                         drawNewMap(currentMapData);
                         updateObjInspector();
                     });
-                } else {
-                    System.out.println("No tile selected to clear Objs from.");
                 }
             });
 
@@ -863,19 +857,21 @@ public class OpenGLRenderer {
 
                             historyStack.clear();
 
-                            drawNewMap(currentMapData);
-                            selectedTile = null;
-                            updateTileInspector();
-                            updateLocInspector();
-                            updateNpcInspector();
-                            updateObjInspector();
+                            Platform.runLater(() -> {
+                                drawNewMap(currentMapData);
+                                selectedTile = null;
+                                updateTileInspector();
+                                updateLocInspector();
+                                updateNpcInspector();
+                                updateObjInspector();
+                            });
                         }
                     }
             );
 
             locCheckbox.setOnAction(e -> {
                 if (currentMapData != null) {
-                    SwingUtilities.invokeLater(() -> {
+                    Platform.runLater(() -> {
                         drawNewMap(currentMapData);
                     });
                 }
@@ -883,7 +879,7 @@ public class OpenGLRenderer {
 
             npcCheckbox.setOnAction(e -> {
                 if (currentMapData != null) {
-                    SwingUtilities.invokeLater(() -> {
+                    Platform.runLater(() -> {
                         drawNewMap(currentMapData);
                     });
                 }
@@ -891,7 +887,7 @@ public class OpenGLRenderer {
 
             objCheckbox.setOnAction(e -> {
                 if (currentMapData != null) {
-                    SwingUtilities.invokeLater(() -> {
+                    Platform.runLater(() -> {
                         drawNewMap(currentMapData);
                     });
                 }
@@ -1094,8 +1090,9 @@ public class OpenGLRenderer {
             }
 
             if ((mods & GLFW_MOD_CONTROL) != 0 && key == GLFW_KEY_Z && action == GLFW_RELEASE) {
-                performUndo();
-                return;
+                Platform.runLater(() -> {
+                    performUndo();
+                });
             }
 
             if ((mods & GLFW_MOD_CONTROL) != 0) {
@@ -1103,7 +1100,13 @@ public class OpenGLRenderer {
                     copyTileDataToMemory();
                 } else if (key == GLFW_KEY_V && action == GLFW_RELEASE) {
                     saveStateBeforeChange();
-                    pasteTileDataFromMemory();
+                    Platform.runLater(() -> {
+                        pasteTileDataFromMemory();
+                        updateTileInspector();
+                        updateLocInspector();
+                        updateNpcInspector();
+                        updateObjInspector();
+                    });
                 }
             }
         });
@@ -1178,43 +1181,16 @@ public class OpenGLRenderer {
                         selectedTile = null;
                     }
                 }
-                updateTileInspector();
-                updateLocInspector();
-                updateNpcInspector();
-                updateObjInspector();
-
-                boolean modificationAttempted = false;
-
-                if (ctrlPressed) {
-                    if (selectedTile != null) {
-                        modificationAttempted = true;
-                    }
-                }
-
-                if (LPressed) {
-                    if (selectedTile != null && modelViewerSelector.getSelectedModel() != null) {
-                        modificationAttempted = true;
-                    }
-                }
-
-                if (NPressed) {
-                    if (selectedTile != null && selectedNpcId != -1) {
-                        modificationAttempted = true;
-                    }
-                }
-
-                if (OPressed) {
-                    if (selectedTile != null && selectedObjId != -1) {
-                        modificationAttempted = true;
-                    }
-                }
-
-                if (modificationAttempted) {
-                    saveStateBeforeChange();
-                }
+                Platform.runLater(() -> {
+                    updateTileInspector();
+                    updateLocInspector();
+                    updateNpcInspector();
+                    updateObjInspector();
+                });
 
                 if (ctrlPressed) {
                     if (selectedTile != null) {
+                        saveStateBeforeChange();
                         TileData newTile = new TileData(selectedTile.level, selectedTile.x, selectedTile.z);
 
                         if (selectedOverlayID == null || selectedOverlayID == -1) {
@@ -1282,8 +1258,14 @@ public class OpenGLRenderer {
                             }
                         }
                         currentMapData.mapTiles[selectedTile.level][selectedTile.x][selectedTile.z] = newTile;
-                        drawNewMap(currentMapData);
-                        selectedTile = newTile;
+                        Platform.runLater(() -> {
+                            drawNewMap(currentMapData);
+                            selectedTile = newTile;
+                            updateTileInspector();
+                            updateLocInspector();
+                            updateNpcInspector();
+                            updateObjInspector();
+                        });
                     }
                 }
 
@@ -1302,10 +1284,14 @@ public class OpenGLRenderer {
                                 System.out.println("Couldn't find Loc ID for Loc: " + selectedLocName);
                                 return;
                             }
+                            saveStateBeforeChange();
                             LocData newLoc = new LocData(selectedTile.level, selectedTile.x, selectedTile.z, locId, selectedLocShape);
                             newLoc.rotation = selectedLocRotation / 90;
                             currentMapData.locations.add(newLoc);
-                            drawNewMap(currentMapData);
+                            Platform.runLater(() -> {
+                                drawNewMap(currentMapData);
+                                updateLocInspector();
+                            });
                         } else {
                             System.err.println("No model selected in Model Viewer.");
                         }
@@ -1315,9 +1301,13 @@ public class OpenGLRenderer {
                 if (NPressed) {
                     if (selectedTile != null) {
                         if (selectedNpcId != -1) {
+                            saveStateBeforeChange();
                             NpcData newNpc = new NpcData(selectedTile.level, selectedTile.x, selectedTile.z, selectedNpcId);
                             currentMapData.npcs.add(newNpc);
-                            drawNewMap(currentMapData);
+                            Platform.runLater(() -> {
+                                drawNewMap(currentMapData);
+                                updateNpcInspector();
+                            });
                         } else {
                             System.err.println("No NPC selected.");
                         }
@@ -1338,9 +1328,13 @@ public class OpenGLRenderer {
                             if (objAmount < 1) {
                                 objAmount = 1;
                             }
+                            saveStateBeforeChange();
                             ObjData newObj = new ObjData(selectedTile.level, selectedTile.x, selectedTile.z, selectedObjId, objAmount);
                             currentMapData.objects.add(newObj);
-                            drawNewMap(currentMapData);
+                            Platform.runLater(() -> {
+                                drawNewMap(currentMapData);
+                                updateObjInspector();
+                            });
                         } else {
                             System.err.println("No OBJ selected.");
                         }
@@ -1425,11 +1419,17 @@ public class OpenGLRenderer {
             Map<Integer, List<Integer>> textureGroups = groupTrianglesByTexture();
             glBindVertexArray(vao);
 
+            int expectedTextureIDLocation = glGetUniformLocation(shaderProgram, "expectedTextureID");
+
             for (Map.Entry<Integer, List<Integer>> entry : textureGroups.entrySet()) {
                 int triangleTexId = entry.getKey();
                 List<Integer> triangleIndices = entry.getValue();
 
                 if (triangleTexId < 0) {
+                    if (expectedTextureIDLocation != -1) {
+                        glUniform1i(expectedTextureIDLocation, -1);
+                    }
+
                     for (int triangleIndex : triangleIndices) {
                         glDrawArrays(GL_TRIANGLES, triangleIndex * 3, 3);
                     }
@@ -1442,14 +1442,11 @@ public class OpenGLRenderer {
                     continue;
                 }
 
-                glActiveTexture(GL_TEXTURE0 + triangleTexId);
+                glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, openglTexId);
 
-                int textureUniformLoc = glGetUniformLocation(shaderProgram, "textures[" + triangleTexId + "]");
-                if (textureUniformLoc != -1) {
-                    glUniform1i(textureUniformLoc, triangleTexId);
-                } else {
-                    System.err.println("Warning: Could not find uniform 'textures[" + triangleTexId + "]'");
+                if (expectedTextureIDLocation != -1) {
+                    glUniform1i(expectedTextureIDLocation, triangleTexId);
                 }
 
                 for (int triangleIndex : triangleIndices) {
@@ -1522,17 +1519,12 @@ public class OpenGLRenderer {
 
         glUseProgram(shaderProgram);
 
-        int texturesLocation = glGetUniformLocation(shaderProgram, "textures");
-        if (texturesLocation == -1) {
-            System.err.println("ERROR: Could not find uniform 'textures' in shader.");
+        int currentTextureLocation = glGetUniformLocation(shaderProgram, "currentTexture");
+        if (currentTextureLocation != -1) {
+            glUniform1i(currentTextureLocation, 0);
+        } else {
+            System.err.println("ERROR: Could not find uniform 'currentTexture' in shader.");
         }
-
-        int[] textureIndices = new int[50];
-        for (int i = 0; i < 50; i++) {
-            textureIndices[i] = i;
-        }
-
-        glUniform1iv(texturesLocation, textureIndices);
 
         glUseProgram(0);
     }
@@ -1720,13 +1712,7 @@ public class OpenGLRenderer {
         }
 
         drawNewMap(currentMapData);
-
         selectedTile = newTargetTile;
-
-        updateTileInspector();
-        updateLocInspector();
-        updateNpcInspector();
-        updateObjInspector();
     }
 
     private void saveStateBeforeChange() {
