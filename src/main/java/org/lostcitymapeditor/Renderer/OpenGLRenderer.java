@@ -1284,6 +1284,12 @@ public class OpenGLRenderer {
                                 System.out.println("Couldn't find Loc ID for Loc: " + selectedLocName);
                                 return;
                             }
+                            for (LocData Loc : currentMapData.getLocData(selectedTile.level, selectedTile.x, selectedTile.z)) {
+                                if (Loc.shape == selectedLocShape) {
+                                    System.out.println("Tile already contains Loc with Locshape: " + selectedLocShape);
+                                    return;
+                                }
+                            }
                             saveStateBeforeChange();
                             LocData newLoc = new LocData(selectedTile.level, selectedTile.x, selectedTile.z, locId, selectedLocShape);
                             newLoc.rotation = selectedLocRotation / 90;
