@@ -40,8 +40,9 @@ public class FileLoader {
         modelMap = parseModelPack(path);
         npcMap = parseNpcPack(path);
         objMap = parseObjPack(path);
-        underlayMap = FloFileTransformer.parseUnderlayFlo(path);
-        overlayMap = FloFileTransformer.parseOverlayFlo(path);
+        FloFileTransformer.FloData floData = FloFileTransformer.parseFloData(path);
+        underlayMap = floData.getUnderlays();
+        overlayMap = floData.getOverlays();
         textureOptsMap = OptFileTransformer.loadTextureOptions(path);
         allLocMap = LocFileTransformer.parseAllLocFiles(path);
         allNpcMap = NpcFileTransformer.parseAllNpcFiles(path);

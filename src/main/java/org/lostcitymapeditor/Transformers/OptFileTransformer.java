@@ -56,12 +56,8 @@ public class OptFileTransformer {
                         int cropY = Integer.parseInt(parts[1].trim());
                         int width = Integer.parseInt(parts[2].trim());
                         int height = Integer.parseInt(parts[3].trim());
-                        String pixelOrderStr = parts[4].trim().toLowerCase();
 
                         int pixelOrder = 0;
-                        if (pixelOrderStr.equals("column")) {
-                            pixelOrder = 1;
-                        }
 
                         return new TextureOptions(cropX, cropY, width, height, pixelOrder);
                     } catch (NumberFormatException e) {

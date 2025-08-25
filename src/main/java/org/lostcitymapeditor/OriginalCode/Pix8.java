@@ -45,12 +45,19 @@ public class Pix8 extends Pix2D {
 
         this.palette = generatePalette(image);
 
-        this.cropX = textureOptions.cropX();
-        this.cropY = textureOptions.cropY();
-        this.width = textureOptions.width();
-        this.height = textureOptions.width();
-
-        int pixelOrder = textureOptions.pixelOrder();
+        int pixelOrder = 0;
+        if (textureOptions == null) {
+            this.cropX = 0;
+            this.cropY = 0;
+            this.width = 128;
+            this.height = 128;
+        } else {
+            this.cropX = textureOptions.cropX();
+            this.cropY = textureOptions.cropY();
+            this.width = textureOptions.width();
+            this.height = textureOptions.height();
+            pixelOrder = textureOptions.pixelOrder();
+        }
         int len = this.width * this.height;
         this.pixels = new byte[len];
         loadPixelData(image, pixelOrder);

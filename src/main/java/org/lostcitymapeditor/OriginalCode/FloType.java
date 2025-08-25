@@ -8,7 +8,7 @@ public class FloType {
     private static FloType[] instances = null;
     public int rgb;
     public int texture = -1;
-    private boolean overlay = false;
+    public boolean overlay = false;
     public boolean occlude = true;
     public String name;
     public int hue;
@@ -20,13 +20,14 @@ public class FloType {
 
     private FloType() {}
 
-
     public static FloType[] getInstances() {
         if (instances == null) {
             int size = FileLoader.getFloMap().size();
             instances = new FloType[size];
-            for ( int id = 0; id < size; id++) {
-                instances[id] = new FloType();
+            for (int id = 0; id < size; id++) {
+                if (instances[id] == null) {
+                    instances[id] = new FloType();
+                }
                 instances[id].addData(id);
             }
         }
@@ -39,15 +40,12 @@ public class FloType {
         Map<Integer, String> floMap = FileLoader.getFloMap();
         Map<Integer, String> textureMap = FileLoader.getTextureMap();
         String name = floMap.get(id);
-        if (overlayMap.get(name) != null) {
-            int rgb = 0;
-            int texture = -1;
-            boolean occlude = true;
+        if (overlayMap.containsKey(name)) {
             Map<String, Object> overlayData = (Map<String, Object>) overlayMap.get(name);
-            if(overlayData.containsKey("rgb")) {
-                rgb = (Integer) overlayData.get("rgb");
-            }
-            if(overlayData.containsKey("texture")) {
+            int rgb = (Integer) overlayData.getOrDefault("rgb", 0);
+            int texture = -1;
+
+            if (overlayData.containsKey("texture")) {
                 String textureName = (String) overlayData.get("texture");
                 for (Map.Entry<Integer, String> entry : textureMap.entrySet()) {
                     if (entry.getValue().equals(textureName)) {
@@ -56,19 +54,21 @@ public class FloType {
                     }
                 }
             }
-            this.updateValues(rgb, texture, occlude, name);
-        } else {
-            this.updateValues(underlayMap.get(name), -1, true, name);
+            this.updateValues(rgb, texture, occlude, name, true);
+
+        } else if (underlayMap.containsKey(name)) {
+            int rgb = underlayMap.get(name);
+            this.updateValues(rgb, -1, true, name, false);
         }
     }
 
-    public void updateValues(int rgb, int texture, boolean occlude, String name) {
+    public void updateValues(int rgb, int texture, boolean occlude, String name, boolean isOverlay) {
         this.rgb = rgb;
-        this.setColor(this.rgb);
         this.texture = texture;
-        this.overlay = true;
         this.occlude = occlude;
         this.name = name;
+        this.overlay = isOverlay;
+        this.setColor(this.rgb);
     }
 
     private void setColor( int rgb) {
