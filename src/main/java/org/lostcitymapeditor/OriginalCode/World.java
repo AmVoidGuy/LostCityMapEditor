@@ -187,6 +187,9 @@ public class World {
         String npcName = FileLoader.getNpcMap().get(npcId);
         Map<String, Object> npcData = (Map<String, Object>) FileLoader.getAllNpcMap().get(npcName);
         String[] models = (String[]) npcData.getOrDefault("models", null);
+        if (models == null) {
+            return;
+        }
         Model[] models1 = new Model[models.length];
         int resizeh = (int) npcData.getOrDefault("resizeh", 128);
         int resizev = (int) npcData.getOrDefault("resizev", 128);
@@ -632,6 +635,7 @@ public class World {
                                 int tintColor = -1;
 
                                 if (underlayId > 0) {
+                                    System.out.println(underlayId);
                                     int hue = hueAccumulator * 256 / luminanceAccumulator;
                                     int saturation = saturationAccumulator / magnitudeAccumulator;
                                     int lightness = lightnessAccumulator / magnitudeAccumulator;

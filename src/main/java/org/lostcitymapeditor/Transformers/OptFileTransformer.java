@@ -50,7 +50,7 @@ public class OptFileTransformer {
             String dataLine = reader.readLine();
             if (dataLine != null) {
                 String[] parts = dataLine.split(",");
-                if (parts.length == 5) {
+                if (parts.length >= 4) {
                     try {
                         int cropX = Integer.parseInt(parts[0].trim());
                         int cropY = Integer.parseInt(parts[1].trim());
