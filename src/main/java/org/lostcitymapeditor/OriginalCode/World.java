@@ -635,7 +635,6 @@ public class World {
                                 int tintColor = -1;
 
                                 if (underlayId > 0) {
-                                    System.out.println(underlayId);
                                     int hue = hueAccumulator * 256 / luminanceAccumulator;
                                     int saturation = saturationAccumulator / magnitudeAccumulator;
                                     int lightness = lightnessAccumulator / magnitudeAccumulator;

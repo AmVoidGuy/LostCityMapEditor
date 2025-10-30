@@ -17,7 +17,7 @@ plugins {
 apply plugin: 'ca.cutterslade.analyze'
 
 group 'org.LostCityMapEditor'
-version '3.2'
+version '3.5'
 
 repositories {
     mavenCentral()
