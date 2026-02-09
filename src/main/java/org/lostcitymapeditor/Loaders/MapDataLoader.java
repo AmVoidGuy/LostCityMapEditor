@@ -61,11 +61,13 @@ public class MapDataLoader {
         }
 
         try (Stream<Path> paths = Files.list(directory.toPath())) {
+            // Make it alphabetical order - Squid
             List<String> fileNames = paths
-                    .filter(path -> !Files.isDirectory(path))
-                    .filter(path -> path.toString().toLowerCase().endsWith(".jm2"))
-                    .map(path -> path.getFileName().toString())
-                    .collect(Collectors.toList());
+                .filter(path -> !Files.isDirectory(path))
+                .filter(path -> path.toString().toLowerCase().endsWith(".jm2"))
+                .map(path -> path.getFileName().toString())
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .collect(Collectors.toList());
             return FXCollections.observableArrayList(fileNames);
         } catch (IOException e) {
             System.err.println("Error reading directory: " + directoryPath + " - " + e.getMessage());

@@ -3,6 +3,7 @@ package org.lostcitymapeditor.Renderer;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList; //squid added
 import javafx.embed.swing.JFXPanel;
 import javafx.embed.swing.SwingNode;
 import javafx.geometry.Insets;
@@ -599,7 +600,9 @@ public class OpenGLRenderer {
                 }
             });
 
-            Set<String> npcNameSet = npcMap.keySet();
+            /* NPC SELECTOR BEGIN */
+
+            /*Set<String> npcNameSet = npcMap.keySet();
 
             List<String> sortedNpcNames = new ArrayList<>(npcNameSet);
             Collections.sort(sortedNpcNames);
@@ -647,6 +650,83 @@ public class OpenGLRenderer {
             npcListView.getSelectionModel().select("None");
 
             npcInspector.getChildren().addAll(inspectorTitle, npcPositionLabel, npcDetailsLabel, clearNpcsButton, npcListView);
+            */
+            Set<String> npcNameSet = npcMap.keySet();
+
+            List<String> sortedNpcNames = new ArrayList<>(npcNameSet);
+            Collections.sort(sortedNpcNames);
+            ObservableList<String> npcNamesObservable = FXCollections.observableArrayList(sortedNpcNames);
+
+            // IMPORTANT: ObservableList in JavaFX does not consistently support addFirst(); use add(0, ...)
+            npcNamesObservable.add(0, "None");
+
+            // Wrap in FilteredList so we can filter by a search query
+            FilteredList<String> npcFilteredList = new FilteredList<>(npcNamesObservable, s -> true);
+
+            // Search box
+            TextField npcSearchField = new TextField();
+            npcSearchField.setPromptText("Search NPCs...");
+            npcSearchField.textProperty().addListener((obs, oldValue, newValue) -> {
+                final String query = (newValue == null) ? "" : newValue.trim().toLowerCase();
+                npcFilteredList.setPredicate(item -> {
+                    if (item == null) return false;
+                    if ("None".equals(item)) return true;         // keep "None" visible during search
+                    if (query.isEmpty()) return true;
+                    return item.toLowerCase().contains(query);
+                });
+            });
+
+            ListView<String> npcListView = new ListView<>(npcFilteredList);
+            npcListView.setPrefHeight(150);
+
+            npcListView.setCellFactory(param -> new ListCell<String>() {
+                @Override
+                protected void updateItem(String npcName, boolean empty) {
+                    super.updateItem(npcName, empty);
+                    if (empty || npcName == null) {
+                        setText(null);
+                        setGraphic(null);
+                    } else {
+                        setText(npcName);
+                        setGraphic(null);
+                    }
+                }
+            });
+
+            npcListView.getSelectionModel().selectedItemProperty().addListener(
+                    (observable, oldValue, newValue) -> {
+                        if (newValue == null || newValue.equals("None")) {
+                            selectedNpcId = -1;
+                        } else {
+                            int npcId = -1;
+                            for (Integer id : FileLoader.getNpcMap().keySet()) {
+                                if (FileLoader.getNpcMap().get(id).equals(newValue)) {
+                                    npcId = id;
+                                    break;
+                                }
+                            }
+                            if (npcId == -1) {
+                                System.err.println("Error: Could not find NPC data or ID key for selected item '" + newValue + "'.");
+                            }
+                            selectedNpcId = npcId;
+                        }
+                    }
+            );
+
+            npcListView.getSelectionModel().select("None");
+
+            // Add the search field above the list view (this is the functional UI change)
+            npcInspector.getChildren().addAll(
+                    inspectorTitle,
+                    npcPositionLabel,
+                    npcDetailsLabel,
+                    clearNpcsButton,
+                    npcSearchField,
+                    npcListView
+            );
+
+
+            /* OBJ SELECTOR BEGIN */
 
             objInspector = new VBox();
             objInspector.setPadding(new Insets(10));
@@ -674,9 +754,26 @@ public class OpenGLRenderer {
             Collections.sort(sortedObjNames);
             ObservableList<String> objNamesObservable = FXCollections.observableArrayList(sortedObjNames);
 
-            objNamesObservable.addFirst("None");
+            // IMPORTANT: ObservableList in JavaFX does not consistently support addFirst(); use add(0, ...)
+            objNamesObservable.add(0, "None");
 
-            ListView<String> objListView = new ListView<>(objNamesObservable);
+            // Wrap in FilteredList so we can filter by a search query
+            FilteredList<String> objFilteredList = new FilteredList<>(objNamesObservable, s -> true);
+
+            // Search box
+            TextField objSearchField = new TextField();
+            objSearchField.setPromptText("Search OBJs...");
+            objSearchField.textProperty().addListener((obs, oldValue, newValue) -> {
+                final String query = (newValue == null) ? "" : newValue.trim().toLowerCase();
+                objFilteredList.setPredicate(item -> {
+                    if (item == null) return false;
+                    if ("None".equals(item)) return true;         // keep "None" visible during search
+                    if (query.isEmpty()) return true;
+                    return item.toLowerCase().contains(query);
+                });
+            });
+
+            ListView<String> objListView = new ListView<>(objFilteredList);
             objListView.setPrefHeight(150);
 
             objListView.setCellFactory(param -> new ListCell<String>() {
@@ -718,7 +815,20 @@ public class OpenGLRenderer {
             Label objAmountLabel = new Label("Amount:");
             objAmountTextField = new TextField();
 
-            objInspector.getChildren().addAll(inspectorTitle, objPositionLabel, objDetailsLabel, clearObjsButton, objListView, objAmountLabel, objAmountTextField);
+            // Add the search field above the list view (this is the functional UI change)
+            objInspector.getChildren().addAll(
+                    inspectorTitle,
+                    objPositionLabel,
+                    objDetailsLabel,
+                    clearObjsButton,
+                    objSearchField,
+                    objListView,
+                    objAmountLabel,
+                    objAmountTextField
+            );
+
+            /* BEGIN TILE INSPECTOR*/
+
 
             tileInspector = new VBox();
             tileInspector.setPadding(new Insets(10));
